@@ -11,6 +11,10 @@ import { Calculator, TrendingUp, CreditCard, Wallet, BarChart3, Target } from "l
 import { ComparisonResults } from "@/components/comparison-results"
 import { formatCurrency } from "@/lib/formatters"
 
+const RENDIMENTO_POUPANCA_PADRAO = 0.6
+const TAXA_CDB_PADRAO = 1.0
+const TAXA_CARTA_CREDITO_PADRAO = 0.7
+
 export function SimuladorConsorcio() {
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
 
@@ -23,7 +27,6 @@ export function SimuladorConsorcio() {
   const [lanceEmbutidoPercent, setLanceEmbutidoPercent] = useState<string>("50")
   const [taxaFinanciamento, setTaxaFinanciamento] = useState<string>("2.5")
   const [entrada, setEntrada] = useState<string>("30")
-  const [rendimentoPoupanca, setRendimentoPoupanca] = useState<string>("0.6")
   const [showResults, setShowResults] = useState(false)
 
   const calcularConsorcio = () => {
@@ -97,7 +100,7 @@ export function SimuladorConsorcio() {
   const calcularAVista = () => {
     const valor = Number.parseFloat(valorBem)
     const prazo = Number.parseInt(prazoMeses)
-    const rendMensal = Number.parseFloat(rendimentoPoupanca) / 100
+    const rendMensal = RENDIMENTO_POUPANCA_PADRAO / 100
 
     const fatorCustoOportunidade = 1.15
     const parcelaMensal = (valor * fatorCustoOportunidade) / prazo
@@ -136,6 +139,45 @@ export function SimuladorConsorcio() {
   const financiamento = calcularFinanciamento()
   const aVista = calcularAVista()
   const outros = calcularOutros()
+
+  const prazoNumber = Number.parseInt(prazoMeses) || 1
+
+  const calcularRentabilidadeMensal = (custoTotal: number, valor: number, prazo: number) => {
+    if (!valor || !prazo || custoTotal <= 0) return 0
+    const fatorTotal = custoTotal / valor
+    if (fatorTotal <= 0) return 0
+    return Math.pow(fatorTotal, 1 / prazo) - 1
+  }
+
+  const rentabilidadeConsorcio = calcularRentabilidadeMensal(consorcio.custoTotal, consorcio.valorBem, prazoNumber)
+  const rentabilidadeFinanciamento = calcularRentabilidadeMensal(
+    financiamento.custoTotal,
+    financiamento.valorBem,
+    prazoNumber,
+  )
+
+  const calcularInvestimentoComTaxa = (valorInicial: number, prazo: number, taxaMensalPercent: number) => {
+    const taxa = taxaMensalPercent / 100
+    if (!valorInicial || !prazo || taxa < -1) {
+      return {
+        valorFinal: 0,
+        ganho: 0,
+        taxaMensal: taxa,
+      }
+    }
+
+    const valorFinal = valorInicial * Math.pow(1 + taxa, prazo)
+    return {
+      valorFinal,
+      ganho: valorFinal - valorInicial,
+      taxaMensal: taxa,
+    }
+  }
+
+  const valorCarta = Number.parseFloat(valorBem) || 0
+  const cartaParada = calcularInvestimentoComTaxa(valorCarta, prazoNumber, TAXA_CARTA_CREDITO_PADRAO)
+  const investimentoCdb = calcularInvestimentoComTaxa(valorCarta, prazoNumber, TAXA_CDB_PADRAO)
+  const investimentoPoupanca = calcularInvestimentoComTaxa(valorCarta, prazoNumber, RENDIMENTO_POUPANCA_PADRAO)
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -327,15 +369,21 @@ export function SimuladorConsorcio() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="rendimentoPoupanca">Rendimento Poupança (% a.m.)</Label>
-                  <Input
-                    id="rendimentoPoupanca"
-                    type="number"
-                    step="0.1"
-                    value={rendimentoPoupanca}
-                    onChange={(e) => setRendimentoPoupanca(e.target.value)}
-                    placeholder="0.6"
-                  />
+                  <Label>Rentabilidade das Opções (% a.m. equivalente)</Label>
+                  <div className="rounded-md border bg-muted px-3 py-2 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Consórcio</span>
+                      <span className="font-semibold">
+                        {(rentabilidadeConsorcio * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Financiamento</span>
+                      <span className="font-semibold text-red-600">
+                        {(rentabilidadeFinanciamento * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -387,15 +435,21 @@ export function SimuladorConsorcio() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="rendimentoPoupancaFin">Rendimento Poupança (% a.m.)</Label>
-                  <Input
-                    id="rendimentoPoupancaFin"
-                    type="number"
-                    step="0.1"
-                    value={rendimentoPoupanca}
-                    onChange={(e) => setRendimentoPoupanca(e.target.value)}
-                    placeholder="0.6"
-                  />
+                  <Label>Rentabilidade das Opções (% a.m. equivalente)</Label>
+                  <div className="rounded-md border bg-muted px-3 py-2 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span>Consórcio</span>
+                      <span className="font-semibold">
+                        {(rentabilidadeConsorcio * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Financiamento</span>
+                      <span className="font-semibold text-red-600">
+                        {(rentabilidadeFinanciamento * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -544,6 +598,68 @@ export function SimuladorConsorcio() {
                 outros={outros}
                 tipoSimulacao={tipoSimulacao}
               />
+
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" />
+                    Rentabilidade se você NÃO usar a carta de crédito
+                  </CardTitle>
+                  <CardDescription>
+                    Compare deixar o valor da carta de crédito parado no consórcio com investir o mesmo valor em CDB ou
+                    poupança.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-3 gap-4 text-sm">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Carta de Crédito (não utilizada)</p>
+                    <p>
+                      Valor inicial: {formatCurrency(valorCarta)}
+                    </p>
+                    <p>
+                      Valor ao final: {formatCurrency(cartaParada.valorFinal)}
+                    </p>
+                    <p className="text-emerald-700">
+                      Ganho: {formatCurrency(cartaParada.ganho)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Taxa considerada: {(TAXA_CARTA_CREDITO_PADRAO).toFixed(2)}% a.m.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="font-semibold">Investindo em CDB</p>
+                    <p>
+                      Valor inicial: {formatCurrency(valorCarta)}
+                    </p>
+                    <p>
+                      Valor ao final: {formatCurrency(investimentoCdb.valorFinal)}
+                    </p>
+                    <p className="text-emerald-700">
+                      Ganho: {formatCurrency(investimentoCdb.ganho)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Taxa considerada: {(TAXA_CDB_PADRAO).toFixed(2)}% a.m.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="font-semibold">Investindo na Poupança</p>
+                    <p>
+                      Valor inicial: {formatCurrency(valorCarta)}
+                    </p>
+                    <p>
+                      Valor ao final: {formatCurrency(investimentoPoupanca.valorFinal)}
+                    </p>
+                    <p className="text-emerald-700">
+                      Ganho: {formatCurrency(investimentoPoupanca.ganho)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Taxa considerada: {RENDIMENTO_POUPANCA_PADRAO.toFixed(2)}% a.m.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </>
           )}
         </div>

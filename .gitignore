@@ -1,0 +1,43 @@
+# Dependências
+node_modules/
+
+# Build de Next.js
+.next/
+out/
+.next-static/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Sistemas operacionais / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Ambiente / segredos
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testes / cobertura
+coverage/
+
+# Ferramentas diversas
+.vercel/
+.turbo/
+.eslintcache
+
+# Arquivos de lock gerados automaticamente (use só o que você quiser versionar)
+# Se quiser manter apenas um deles no Git, basta remover os outros desta lista
+# package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+
+tsconfig.json
