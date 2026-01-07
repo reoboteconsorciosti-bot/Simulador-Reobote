@@ -49,7 +49,6 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 
 # Ajusta permissões
-RUN mkdir .next && chown nextjs:nodejs .next
 RUN chown -R nextjs:nodejs /app
 
 USER nextjs
