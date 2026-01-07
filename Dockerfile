@@ -8,14 +8,14 @@ WORKDIR /app
 
 # Copia os arquivos de package e instala TODAS as dependências (incluindo dev para o build)
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Fase de build
 FROM base AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 COPY . .
 
@@ -34,7 +34,7 @@ ENV NODE_ENV=production
 # Instala apenas dependências de produção para rodar a app
 RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 
 # Cria usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs
