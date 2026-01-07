@@ -4,7 +4,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.98 0.01 240);
+  /* Background principal ajustado para #bbe5e5 (LAB aproximado: 88 -14.29 -4.48) */
+  --background: #bbe5e5;
   --foreground: oklch(0.15 0.02 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0.02 250);
@@ -121,5 +122,105 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  :where(
+      button,
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      a,
+      [role="button"],
+      [role="tab"],
+      summary,
+      .clickable,
+      .ui-clickable,
+      [data-clickable="true"]
+    ) {
+    cursor: pointer;
+    transition-property: color, background-color, border-color, opacity, box-shadow, transform, filter;
+    transition-duration: 0.2s;
+    transition-timing-function: ease-in-out;
+  }
+
+  :where(
+      button,
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      [role="button"],
+      [role="tab"],
+      summary,
+      .clickable,
+      .ui-clickable,
+      [data-clickable="true"]
+    ):not(:disabled):hover {
+    filter: brightness(1.02);
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.08);
+  }
+
+  :where(
+      button,
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      [role="button"],
+      [role="tab"],
+      summary,
+      .clickable,
+      .ui-clickable,
+      [data-clickable="true"]
+    ):not(:disabled):active {
+    transform: scale(0.98);
+    box-shadow: 0 3px 10px rgba(2, 6, 23, 0.06);
+  }
+
+  :where(
+      button,
+      [type="button"],
+      [type="submit"],
+      [type="reset"],
+      a,
+      [role="button"],
+      [role="tab"],
+      summary,
+      input,
+      select,
+      textarea,
+      .clickable,
+      .ui-clickable,
+      [data-clickable="true"]
+    ):focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  :where(input, select, textarea) {
+    transition: all 0.2s ease-in-out;
+  }
+
+  :where(input, select, textarea):not(:disabled):hover {
+    box-shadow: 0 6px 18px rgba(2, 6, 23, 0.06);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(
+        button,
+        [type="button"],
+        [type="submit"],
+        [type="reset"],
+        a,
+        [role="button"],
+        [role="tab"],
+        summary,
+        input,
+        select,
+        textarea,
+        .clickable,
+        .ui-clickable,
+        [data-clickable="true"]
+      ) {
+      transition: none;
+    }
   }
 }
