@@ -6,9 +6,9 @@ RUN apk add --no-cache libc6-compat
 
 WORKDIR /app
 
-# Copia os arquivos de package e instala dependências
+# Copia os arquivos de package e instala TODAS as dependências (incluindo dev para o build)
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci
 
 # Fase de build
 FROM base AS builder
@@ -26,10 +26,15 @@ RUN npx prisma generate
 RUN npm run build
 
 # Fase de execução
-FROM base AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# Instala apenas dependências de produção para rodar a app
+RUN apk add --no-cache libc6-compat
+COPY package.json package-lock.json* ./
+RUN npm ci --only=production && npm cache clean --force
 
 # Cria usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs
@@ -51,8 +56,8 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Comando de inicialização
 CMD ["node", "server.js"]
