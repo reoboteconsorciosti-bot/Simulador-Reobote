@@ -63,6 +63,13 @@ function inferParcela(outputs: any) {
   return null
 }
 
+function inferTipoBem(inputs: any): "imovel" | "automovel" | null {
+  if (!inputs || typeof inputs !== "object") return null
+  const raw = (inputs as any).tipoBem
+  if (raw === "imovel" || raw === "automovel") return raw
+  return null
+}
+
 function inferNomeCliente(inputs: any): string | null {
   if (!inputs || typeof inputs !== "object") return null
   const direto = (inputs as any).nomeCliente
@@ -98,6 +105,7 @@ export function HistoryView() {
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [filterNomeCliente, setFilterNomeCliente] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmKind, setConfirmKind] = useState<"remove" | "clear" | null>(null)
   const [confirmTargetId, setConfirmTargetId] = useState<string | null>(null)
@@ -247,8 +255,8 @@ export function HistoryView() {
   }, [user?.uid])
 
   const rows = useMemo(() => {
-    return items.filter((it) => isConsorcioSimulation(it.inputs, it.outputs)).map((it) => {
-      const tipo = inferTipo(it.inputs)
+    const base = items.filter((it) => isConsorcioSimulation(it.inputs, it.outputs)).map((it) => {
+      const tipoBem = inferTipoBem(it.inputs)
       const valorBem = inferValorBem(it.inputs)
       const parcela = inferParcela(it.outputs)
       const nomeCliente = inferNomeCliente(it.inputs)
@@ -256,7 +264,12 @@ export function HistoryView() {
       return {
         id: it.id,
         createdAt: getCreatedAtLabel(it.createdAt),
-        tipo,
+        tipo:
+          tipoBem === "imovel"
+            ? "Imóvel"
+            : tipoBem === "automovel"
+              ? "Automóvel"
+              : "-",
         valorBem,
         parcela,
         owner: it.user,
@@ -266,7 +279,10 @@ export function HistoryView() {
         outputs: it.outputs,
       }
     })
-  }, [items])
+    if (!filterNomeCliente.trim()) return base
+    const term = filterNomeCliente.trim().toLowerCase()
+    return base.filter((row) => row.nomeCliente?.toLowerCase().includes(term))
+  }, [items, filterNomeCliente])
 
   if (!user) {
     return (
@@ -330,11 +346,20 @@ export function HistoryView() {
         )}
       </AnimatePresence>
 
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-slate-900">Histórico</h2>
           <p className="mt-1 text-sm text-slate-500">Simulações salvas e acessíveis conforme seu perfil.</p>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="text"
+            value={filterNomeCliente}
+            onChange={(e) => setFilterNomeCliente(e.target.value)}
+            placeholder="Filtrar por nome do cliente"
+            className="w-full sm:w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1"
+          />
+        
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -354,6 +379,7 @@ export function HistoryView() {
           >
             {loading ? "Atualizando..." : "Atualizar"}
           </button>
+        </div>
         </div>
       </div>
 

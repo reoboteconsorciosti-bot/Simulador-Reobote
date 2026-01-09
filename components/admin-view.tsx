@@ -13,6 +13,7 @@ type AdminUser = {
   role: UserRole
   createdAt: string
   teamName?: string | null
+  photoUrl?: string | null
 }
 
 export function AdminView() {
@@ -23,6 +24,8 @@ export function AdminView() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [photoUrl, setPhotoUrl] = useState("")
+
   const [role, setRole] = useState<UserRole>(UserRole.Consultor)
   const [createTeamName, setCreateTeamName] = useState<string | null>(null)
 
@@ -34,8 +37,12 @@ export function AdminView() {
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editPassword, setEditPassword] = useState("")
+  const [editPhotoUrl, setEditPhotoUrl] = useState("")
   const [editRole, setEditRole] = useState<UserRole>(UserRole.Consultor)
   const [editTeamName, setEditTeamName] = useState<string | null>(null)
+
+  const [deleteTeamName, setDeleteTeamName] = useState<string | null>(null)
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<AdminUser | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -127,6 +134,7 @@ export function AdminView() {
           role,
           // apenas consultor pode ser vinculado a equipe na criação
           teamName: role === UserRole.Consultor ? createTeamName : null,
+          photoUrl: photoUrl.trim() || null,
         }),
       })
 
@@ -139,6 +147,7 @@ export function AdminView() {
       setName("")
       setEmail("")
       setPassword("")
+      setPhotoUrl("")
       setRole(UserRole.Consultor)
       setCreateTeamName(null)
 
@@ -151,6 +160,7 @@ export function AdminView() {
             role: data.user.role,
             createdAt: data.user.createdAt,
             teamName: data.user.teamName ?? null,
+            photoUrl: data.user.photoUrl ?? null,
           },
           ...prev,
         ])
@@ -267,6 +277,7 @@ export function AdminView() {
     setEditPassword("")
     setEditRole(target.role)
     setEditTeamName(target.teamName ?? null)
+    setEditPhotoUrl(target.photoUrl ?? "")
   }
 
   const handleSaveEdit = async () => {
@@ -308,6 +319,7 @@ export function AdminView() {
           role: editRole,
           password: editPassword ? editPassword : undefined,
           teamName: nextTeamName,
+          photoUrl: editPhotoUrl.trim() || null,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -320,7 +332,7 @@ export function AdminView() {
         prev.map((u) =>
           u.id !== editTarget.id
             ? u
-            : { ...u, name: nextName, email: nextEmail, role: editRole, teamName: nextTeamName },
+            : { ...u, name: nextName, email: nextEmail, role: editRole, teamName: nextTeamName, photoUrl: editPhotoUrl.trim() || null },
         ),
       )
       setEditUserId(null)
@@ -340,17 +352,16 @@ export function AdminView() {
 
         {(error || success) && (
           <div
-            className={`mt-4 rounded-lg border px-3 py-2 text-sm ${
-              error
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700"
-            }`}
+            className={`mt-4 rounded-lg border px-3 py-2 text-sm ${error
+              ? "border-red-200 bg-red-50 text-red-700"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}
           >
             {error || success}
           </div>
         )}
 
-      <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label className="text-xs font-medium text-slate-600">Nome</label>
             <input
@@ -414,6 +425,15 @@ export function AdminView() {
               Este campo só será aplicado se o cargo for Consultor.
             </p>
           </div>
+          <div>
+            <label className="text-xs font-medium text-slate-600">Foto URL (opcional)</label>
+            <input
+              value={photoUrl}
+              onChange={(e) => setPhotoUrl(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+              placeholder="https://exemplo.com/foto.jpg"
+            />
+          </div>
         </div>
 
         <div className="mt-5">
@@ -456,7 +476,16 @@ export function AdminView() {
                 key={u.id}
                 className="grid grid-cols-12 items-center border-t border-slate-200 px-3 py-2 text-sm text-slate-700"
               >
-                <div className="col-span-3 truncate font-medium text-slate-900">{u.name}</div>
+                <div className="col-span-3 truncate font-medium text-slate-900 flex items-center gap-2">
+                  {u.photoUrl ? (
+                    <img src={u.photoUrl} alt={u.name} className="h-6 w-6 rounded-full object-cover border border-slate-200" />
+                  ) : (
+                    <div className="h-6 w-6 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[10px] text-slate-500 font-bold">
+                      {u.name.substring(0, 1).toUpperCase()}
+                    </div>
+                  )}
+                  {u.name}
+                </div>
                 <div className="col-span-3 truncate text-slate-600">{u.email}</div>
                 <div className="col-span-2 truncate text-slate-600">{u.role}</div>
                 <div className="col-span-2 truncate text-slate-600">
@@ -522,7 +551,7 @@ export function AdminView() {
                     <div className="text-xs text-slate-500">{teamConsultants.length} consultores</div>
                     <button
                       type="button"
-                      onClick={() => handleDeleteTeam(teamName)}
+                      onClick={() => setDeleteTeamName(teamName)}
                       className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100"
                     >
                       Excluir equipe
@@ -544,7 +573,7 @@ export function AdminView() {
                         <span className="truncate font-medium text-slate-900">{u.name || u.email}</span>
                         <button
                           type="button"
-                          onClick={() => handleAssignTeam(u, null)}
+                          onClick={() => setRemoveMemberTarget(u)}
                           className="text-[11px] font-medium text-red-600 hover:text-red-700"
                         >
                           Remover da equipe
@@ -662,6 +691,16 @@ export function AdminView() {
                 />
               </div>
 
+              <div>
+                <label className="text-xs font-medium text-slate-600">Foto URL (opcional)</label>
+                <input
+                  value={editPhotoUrl}
+                  onChange={(e) => setEditPhotoUrl(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                  placeholder="https://exemplo.com/foto.jpg"
+                />
+              </div>
+
               {editRole === UserRole.Consultor && (
                 <div>
                   <label className="text-xs font-medium text-slate-600">Adicionar a uma equipe</label>
@@ -698,6 +737,81 @@ export function AdminView() {
                 className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
               >
                 Salvar alterações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTeamName && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-950/30"
+            onClick={() => setDeleteTeamName(null)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="text-base font-semibold text-slate-900">Excluir equipe</div>
+            <div className="mt-2 text-sm text-slate-600">
+              Você tem certeza que deseja excluir a equipe <span className="font-semibold text-slate-900">{deleteTeamName}</span>?
+              <br />
+              <span className="text-xs text-red-600 block mt-2">
+                Os consultores vinculados serão removidos da equipe, mas <strong>não</strong> serão excluídos do sistema.
+              </span>
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTeamName(null)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteTeam(deleteTeamName)
+                  setDeleteTeamName(null)
+                }}
+                className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Excluir equipe
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {removeMemberTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-slate-950/30"
+            onClick={() => setRemoveMemberTarget(null)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div className="text-base font-semibold text-slate-900">Remover da equipe</div>
+            <div className="mt-2 text-sm text-slate-600">
+              Você tem certeza que deseja remover <span className="font-semibold text-slate-900">{removeMemberTarget.name || removeMemberTarget.email}</span> da equipe?
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRemoveMemberTarget(null)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleAssignTeam(removeMemberTarget, null)
+                  setRemoveMemberTarget(null)
+                }}
+                className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Remover
               </button>
             </div>
           </div>

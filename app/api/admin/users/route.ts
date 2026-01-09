@@ -49,6 +49,7 @@ export async function GET() {
       email: true,
       role: true,
       createdAt: true,
+      photoUrl: true,
       team: {
         select: {
           id: true,
@@ -65,6 +66,7 @@ export async function GET() {
       email: u.email,
       role: u.role,
       createdAt: u.createdAt,
+      photoUrl: u.photoUrl,
       teamName: u.team?.name ?? null,
     })),
   })
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
   if (!guard.ok) return guard.response
 
   const body = (await request.json().catch(() => null)) as
-    | { name?: string; email?: string; password?: string; role?: UserRole; teamName?: string | null }
+    | { name?: string; email?: string; password?: string; role?: UserRole; teamName?: string | null; photoUrl?: string }
     | null
 
   const name = body?.name?.trim() ?? ""
@@ -83,6 +85,7 @@ export async function POST(request: Request) {
   const password = body?.password ?? ""
   const role = body?.role ?? UserRole.Consultor
   let teamName = body?.teamName ?? null
+  const photoUrl = body?.photoUrl ?? null
 
   if (!name) return NextResponse.json({ message: "Informe o nome." }, { status: 400 })
   if (!email || !email.includes("@")) return NextResponse.json({ message: "Informe um e-mail válido." }, { status: 400 })
@@ -116,7 +119,7 @@ export async function POST(request: Request) {
         passwordHash: hashPassword(password),
         role: role as any,
         teamId,
-        photoUrl: null,
+        photoUrl,
       },
       select: {
         id: true,
@@ -124,6 +127,7 @@ export async function POST(request: Request) {
         name: true,
         role: true,
         createdAt: true,
+        photoUrl: true,
         team: {
           select: { name: true },
         },
@@ -137,6 +141,7 @@ export async function POST(request: Request) {
         email: created.email,
         role: created.role,
         createdAt: created.createdAt,
+        photoUrl: created.photoUrl,
         teamName: created.team?.name ?? null,
       },
     })
@@ -154,7 +159,15 @@ export async function PUT(request: Request) {
   if (!guard.ok) return guard.response
 
   const body = (await request.json().catch(() => null)) as
-    | { id?: string; name?: string; email?: string; password?: string; role?: UserRole; teamName?: string | null }
+    | {
+      id?: string
+      name?: string
+      email?: string
+      password?: string
+      role?: UserRole
+      teamName?: string | null
+      photoUrl?: string
+    }
     | null
 
   const id = body?.id ?? ""
@@ -163,6 +176,7 @@ export async function PUT(request: Request) {
   const password = body?.password ?? ""
   const role = body?.role
   const teamName = body?.teamName ?? undefined
+  const photoUrl = body?.photoUrl
 
   if (!id) return NextResponse.json({ message: "Invalid payload" }, { status: 400 })
   if (!name) return NextResponse.json({ message: "Informe o nome." }, { status: 400 })
@@ -193,6 +207,7 @@ export async function PUT(request: Request) {
         ...(role ? { role: role as any } : {}),
         ...(password ? { passwordHash: hashPassword(password) } : {}),
         ...(typeof teamId !== "undefined" ? { teamId } : {}),
+        ...(typeof photoUrl !== "undefined" ? { photoUrl } : {}),
       },
     })
 

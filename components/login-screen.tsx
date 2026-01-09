@@ -28,7 +28,6 @@ export function LoginScreen() {
       router.replace("/app")
     } catch (err: any) {
       setError(err?.message || "Erro ao fazer login.")
-    } finally {
       setSubmitting(false)
     }
   }

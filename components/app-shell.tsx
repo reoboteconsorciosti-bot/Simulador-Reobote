@@ -92,9 +92,8 @@ export function AppShell({ children }: AppShellProps) {
         <button
           type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          className={`fixed top-4 z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 ${
-            isOpen ? "left-60" : "left-4"
-          }`}
+          className={`fixed top-4 z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md hover:bg-slate-50 ${isOpen ? "left-60" : "left-4"
+            }`}
           aria-label="Alternar menu lateral"
         >
           {isOpen ? <ChevronLeft className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
@@ -104,13 +103,12 @@ export function AppShell({ children }: AppShellProps) {
       {/* Barra lateral esquerda responsiva */}
       <aside className="pointer-events-auto flex-shrink-0">
         <div
-          className={`sidebar transform-gpu border-r border-slate-200 bg-white/95 shadow-lg transition-all duration-300 ease-out ${
-            isDesktop
+          className={`sidebar transform-gpu border-r border-slate-200 bg-white/95 shadow-lg transition-all duration-300 ease-out ${isDesktop
               ? // Desktop: sidebar participa do layout em coluna
-                `${isOpen ? "w-56" : "w-16"} relative h-screen`
+              `${isOpen ? "w-56" : "w-16"} relative h-screen`
               : // Mobile/Tablet: sidebar fixa sobrepondo o conteúdo
-                `${isOpen ? "fixed inset-y-0 left-0 w-56 z-40" : "fixed inset-y-0 -left-full w-56 z-40"}`
-          }`}
+              `${isOpen ? "fixed inset-y-0 left-0 w-56 z-40" : "fixed inset-y-0 -left-full w-56 z-40"}`
+            }`}
         >
           <div className="flex w-full flex-col h-screen overflow-y-auto lg:sticky lg:top-6 pt-6">
             {/* Cabeçalho da barra com logo compacto e botão de toggle */}
@@ -183,11 +181,17 @@ export function AppShell({ children }: AppShellProps) {
                       className="rounded-full"
                       aria-label="Abrir menu do perfil"
                     >
-                      <img
-                        src="/images/Caiki.jpg"
-                        alt={user.profile.name}
-                        className="h-7 w-7 flex-shrink-0 rounded-full object-cover border border-slate-200"
-                      />
+                      {user.profile.photoUrl ? (
+                        <img
+                          src={user.profile.photoUrl}
+                          alt={user.profile.name}
+                          className="h-7 w-7 flex-shrink-0 rounded-full object-cover border border-slate-200"
+                        />
+                      ) : (
+                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-bold text-slate-600">
+                          {user.profile.name.substring(0, 1).toUpperCase()}
+                        </div>
+                      )}
                     </button>
 
                     {isProfileMenuOpen && (
@@ -253,16 +257,14 @@ function SidebarItem({ active, icon, label, isOpen, onClick }: SidebarItemProps)
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-sm font-medium transition-all duration-200 ${
-        active
+      className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-sm font-medium transition-all duration-200 ${active
           ? "bg-blue-50 text-blue-600"
           : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-      }`}
+        }`}
     >
       <span
-        className={`flex h-9 w-9 items-center justify-center rounded-full ${
-          active ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"
-        }`}
+        className={`flex h-9 w-9 items-center justify-center rounded-full ${active ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-600"
+          }`}
       >
         <span className="scale-110">{icon}</span>
       </span>

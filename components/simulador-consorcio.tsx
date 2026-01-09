@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Calculator, TrendingUp, CreditCard, Wallet, BarChart3, Target } from "lucide-react"
 import { ComparisonResults } from "@/components/comparison-results"
+import { useAuth } from "@/components/auth-context"
 import { formatCurrency } from "@/lib/formatters"
 import { calculateSimulation, type SimulationInputs, type SimulationOutputs } from "@/lib/calculate-simulation"
 
@@ -67,6 +68,7 @@ const TAXA_CARTA_CREDITO_PADRAO = 0.7
 const SIMULATOR_STORAGE_KEY = "sim-pro-simulator-state"
 
 export function SimuladorConsorcio() {
+  const { user } = useAuth()
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
 
   const [loadedOutputs, setLoadedOutputs] = useState<{
@@ -116,6 +118,11 @@ export function SimuladorConsorcio() {
   const basePrazoMeses = tipoSimulacao === "financiamento" ? prazoMesesFin : prazoMeses
 
   const resultadosRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!user?.profile?.name) return
+    setNomeConsultor((current) => (current && current.trim().length > 0 ? current : user.profile.name))
+  }, [user?.profile?.name])
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -193,7 +200,6 @@ export function SimuladorConsorcio() {
       if (typeof inputs.lanceNaAssembleia === "string") setLanceNaAssembleia(inputs.lanceNaAssembleia)
 
       if (typeof inputs.nomeCliente === "string") setNomeCliente(inputs.nomeCliente)
-      if (typeof inputs.nomeConsultor === "string") setNomeConsultor(inputs.nomeConsultor)
       if (inputs.tipoBem === "imovel" || inputs.tipoBem === "automovel") setTipoBem(inputs.tipoBem)
 
       const tipoFromOutputs =
@@ -346,7 +352,6 @@ export function SimuladorConsorcio() {
       if (typeof parsed.diluirLance === "string") setDiluirLance(parsed.diluirLance)
       if (typeof parsed.lanceNaAssembleia === "string") setLanceNaAssembleia(parsed.lanceNaAssembleia)
       if (typeof parsed.nomeCliente === "string") setNomeCliente(parsed.nomeCliente)
-      if (typeof parsed.nomeConsultor === "string") setNomeConsultor(parsed.nomeConsultor)
       if (parsed.tipoBem === "imovel" || parsed.tipoBem === "automovel") setTipoBem(parsed.tipoBem)
     } catch {
       // ignora
@@ -865,33 +870,6 @@ export function SimuladorConsorcio() {
                   {errosObrigatorios.taxaAdministracao && (
                     <p className="text-xs text-red-600">Informe a taxa de administração.</p>
                   )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="fundoReserva">Fundo de Reserva (%)</Label>
-                  <Input
-                    id="fundoReserva"
-                    type="number"
-                    step="0.1"
-                    value={fundoReserva}
-                    onChange={(e) => setFundoReserva(e.target.value)}
-                    placeholder="3"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="percentualParcelaBase">% da Parcela base (antes do plano)</Label>
-                  <Input
-                    id="percentualParcelaBase"
-                    type="text"
-                    value={
-                      percentualParcelaBase !== null
-                        ? `${percentualParcelaBase.toFixed(4).replace(".", ",")}%`
-                        : ""
-                    }
-                    readOnly
-                    placeholder="Gerado pela Simulação Oficial"
-                  />
                 </div>
 
                 <div className="space-y-2">
