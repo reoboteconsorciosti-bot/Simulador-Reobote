@@ -62,5 +62,4 @@ jspm_packages/
 .git
 .gitignore
 
-# Prisma
-prisma/migrations
+

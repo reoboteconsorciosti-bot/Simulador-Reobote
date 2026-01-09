@@ -119,9 +119,8 @@ export function SimuladorConsorcio() {
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const detail = (event as CustomEvent).detail as { inputs?: any; outputs?: any } | undefined
-      const inputs = detail?.inputs
-      const outputs = detail?.outputs
+      const custom = event as CustomEvent<{ inputs?: any; outputs?: any }>
+      const { inputs, outputs } = custom.detail || {}
       if (!inputs || !outputs) return
 
       const inferredTipoFromOutputs = outputs?.simulacaoOficial ? "consorcio" : null
@@ -193,6 +192,10 @@ export function SimuladorConsorcio() {
       if (typeof inputs.diluirLance === "string") setDiluirLance(inputs.diluirLance)
       if (typeof inputs.lanceNaAssembleia === "string") setLanceNaAssembleia(inputs.lanceNaAssembleia)
 
+      if (typeof inputs.nomeCliente === "string") setNomeCliente(inputs.nomeCliente)
+      if (typeof inputs.nomeConsultor === "string") setNomeConsultor(inputs.nomeConsultor)
+      if (inputs.tipoBem === "imovel" || inputs.tipoBem === "automovel") setTipoBem(inputs.tipoBem)
+
       const tipoFromOutputs =
         outputs?.tipoSimulacao === "financiamento"
           ? "financiamento"
@@ -227,10 +230,6 @@ export function SimuladorConsorcio() {
       )
       setErrosObrigatorios({ valorBem: false, prazoMeses: false, taxaAdministracao: false })
       setShowResults(true)
-
-      setTimeout(() => {
-        resultadosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-      }, 50)
     }
 
     window.addEventListener("sim-pro-load-simulation", handler)
@@ -630,9 +629,9 @@ export function SimuladorConsorcio() {
     })
 
     // Após mostrar os resultados, rola suavemente para o container principal de resultados
-    setTimeout(() => {
-      resultadosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 50)
+    // setTimeout(() => {
+    //   resultadosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    // }, 50)
   }
 
   const consorcio = calcularConsorcio()
@@ -1155,17 +1154,24 @@ export function SimuladorConsorcio() {
               key="results"
               layout="position"
               ref={resultadosRef}
-              initial={{ opacity: 0, y: 24 }}
+              initial={{ opacity: 0, y: 80 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
+              exit={{ opacity: 0, y: 80 }}
               transition={{ duration: 0.45, ease: "easeInOut", type: "tween" }}
               className={showResults ? "lg:col-span-2 space-y-6" : "space-y-6"}
             >
               <div className="grid md:grid-cols-2 gap-4">
                 {effectiveTipoSimulacao === "consorcio" ? (
                   <>
-                    <Card className="bg-primary text-primary-foreground md:col-span-2">
-                      <CardHeader className="pb-3">
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, y: 200 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.45, ease: "easeOut" }}
+                      className="md:col-span-2"
+                    >
+                      <Card className="bg-primary text-primary-foreground">
+                        <CardHeader className="pb-3">
                         <CardTitle className="text-base font-medium flex items-center gap-2">
                           <CreditCard className="w-5 h-5" />
                           <span>
@@ -1174,7 +1180,7 @@ export function SimuladorConsorcio() {
                           </span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
+                        <CardContent>
                         {simulacaoOficial ? (
                           <>
                             <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
@@ -1281,36 +1287,37 @@ export function SimuladorConsorcio() {
                             )}
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
 
                     {simulacaoOficial && (
                       <>
                         <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
-                          <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
+                          <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
                             <div className="space-y-1">
-                              <p className="font-semibold text-emerald-900/80 text-[0.7rem] md:text-xs uppercase tracking-wide">
+                              <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
                                 Saldo Devedor
                               </p>
-                              <p className="text-base md:text-xl font-bold text-emerald-900/90">
+                              <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
                                 {formatCurrency(simulacaoOficial.saldoDevedor)}
                               </p>
                             </div>
 
                             <div className="space-y-1">
-                              <p className="font-semibold text-emerald-900/80 text-[0.7rem] md:text-xs uppercase tracking-wide">
+                              <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
                                 Qtd Parcelas Pagas
                               </p>
-                              <p className="text-base md:text-xl font-bold text-emerald-900/90">
+                              <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
                                 {simulacaoOficial.parcContem}
                               </p>
                             </div>
 
                             <div className="space-y-1">
-                              <p className="font-semibold text-emerald-900/80 text-[0.7rem] md:text-xs uppercase tracking-wide">
+                              <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
                                 Parcelas a Pagar
                               </p>
-                              <p className="text-emerald-900/90 text-xs md:text-sm">
+                              <p className="text-emerald-900/90 text-sm md:text-base">
                                 <span className="font-semibold text-emerald-900">
                                   {simulacaoOficial.parcelasAPagarQtd}x
                                 </span>{" "}

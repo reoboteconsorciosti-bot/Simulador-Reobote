@@ -63,6 +63,26 @@ function inferParcela(outputs: any) {
   return null
 }
 
+function inferNomeCliente(inputs: any): string | null {
+  if (!inputs || typeof inputs !== "object") return null
+  const direto = (inputs as any).nomeCliente
+  if (typeof direto === "string" && direto.trim()) return direto.trim()
+  const legado = (inputs as any).clienteNome
+  if (typeof legado === "string" && legado.trim()) return legado.trim()
+  return null
+}
+
+function inferNomeConsultor(inputs: any, owner: ApiUser | undefined): string | null {
+  if (inputs && typeof inputs === "object") {
+    const direto = (inputs as any).nomeConsultor
+    if (typeof direto === "string" && direto.trim()) return direto.trim()
+    const legado = (inputs as any).consultorNome
+    if (typeof legado === "string" && legado.trim()) return legado.trim()
+  }
+  if (owner?.name && owner.name.trim()) return owner.name.trim()
+  return null
+}
+
 function isConsorcioSimulation(inputs: any, outputs: any) {
   if (outputs?.simulacaoOficial != null) return true
   const tipoSimulacao = inputs?.tipoSimulacao
@@ -231,6 +251,8 @@ export function HistoryView() {
       const tipo = inferTipo(it.inputs)
       const valorBem = inferValorBem(it.inputs)
       const parcela = inferParcela(it.outputs)
+      const nomeCliente = inferNomeCliente(it.inputs)
+      const nomeConsultor = inferNomeConsultor(it.inputs, it.user)
       return {
         id: it.id,
         createdAt: getCreatedAtLabel(it.createdAt),
@@ -238,6 +260,8 @@ export function HistoryView() {
         valorBem,
         parcela,
         owner: it.user,
+        nomeCliente,
+        nomeConsultor,
         inputs: it.inputs,
         outputs: it.outputs,
       }
@@ -340,6 +364,7 @@ export function HistoryView() {
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-3 py-2 text-left font-semibold">Data</th>
+              <th className="px-3 py-2 text-left font-semibold">Cliente</th>
               <th className="px-3 py-2 text-left font-semibold">Tipo</th>
               <th className="px-3 py-2 text-left font-semibold">Valor do bem</th>
               <th className="px-3 py-2 text-left font-semibold">Parcela</th>
@@ -350,7 +375,7 @@ export function HistoryView() {
           <tbody className="divide-y divide-slate-200">
             {rows.length === 0 && !loading ? (
               <tr>
-                <td className="px-3 py-4 text-slate-500" colSpan={canSeeOwnerColumn ? 6 : 5}>
+                <td className="px-3 py-4 text-slate-500" colSpan={canSeeOwnerColumn ? 7 : 6}>
                   Nenhuma simulação encontrada.
                 </td>
               </tr>
@@ -358,13 +383,14 @@ export function HistoryView() {
               rows.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50">
                   <td className="px-3 py-2 whitespace-nowrap text-slate-700">{row.createdAt}</td>
+                  <td className="px-3 py-2 text-slate-700">{row.nomeCliente ?? "-"}</td>
                   <td className="px-3 py-2 text-slate-700">{row.tipo}</td>
                   <td className="px-3 py-2 text-slate-700">{row.valorBem != null ? formatCurrency(row.valorBem) : "-"}</td>
                   <td className="px-3 py-2 text-slate-700">{row.parcela != null ? `${formatCurrency(row.parcela)}/mês` : "-"}</td>
                   {canSeeOwnerColumn && (
                     <td className="px-3 py-2 text-slate-700">
                       <div className="min-w-0">
-                        <div className="truncate font-medium">{row.owner?.name ?? "-"}</div>
+                        <div className="truncate font-medium">{row.nomeConsultor ?? row.owner?.name ?? "-"}</div>
                         <div className="truncate text-xs text-slate-500">{row.owner?.email ?? ""}</div>
                       </div>
                     </td>
