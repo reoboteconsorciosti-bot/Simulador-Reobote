@@ -35,6 +35,7 @@ export function AdminView() {
   const [editEmail, setEditEmail] = useState("")
   const [editPassword, setEditPassword] = useState("")
   const [editRole, setEditRole] = useState<UserRole>(UserRole.Consultor)
+  const [editTeamName, setEditTeamName] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -265,6 +266,7 @@ export function AdminView() {
     setEditEmail(target.email)
     setEditPassword("")
     setEditRole(target.role)
+    setEditTeamName(target.teamName ?? null)
   }
 
   const handleSaveEdit = async () => {
@@ -292,6 +294,8 @@ export function AdminView() {
       return
     }
 
+    const nextTeamName = editRole === UserRole.Consultor ? editTeamName : null
+
     setLoading(true)
     try {
       const res = await fetch("/api/admin/users", {
@@ -303,6 +307,7 @@ export function AdminView() {
           email: nextEmail,
           role: editRole,
           password: editPassword ? editPassword : undefined,
+          teamName: nextTeamName,
         }),
       })
       const data = await res.json().catch(() => null)
@@ -312,7 +317,11 @@ export function AdminView() {
       }
 
       setUsers((prev) =>
-        prev.map((u) => (u.id !== editTarget.id ? u : { ...u, name: nextName, email: nextEmail, role: editRole })),
+        prev.map((u) =>
+          u.id !== editTarget.id
+            ? u
+            : { ...u, name: nextName, email: nextEmail, role: editRole, teamName: nextTeamName },
+        ),
       )
       setEditUserId(null)
       setSuccess("Usuário atualizado com sucesso.")
@@ -502,7 +511,9 @@ export function AdminView() {
               <div key={teamName} className="rounded-xl bg-white/90 p-6 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-base font-semibold text-slate-900">{teamName}</div>
+                    <div className="text-base font-semibold text-slate-900">
+                      {teamName.replace(/^Equipe do\s+/i, "Equipe ")}
+                    </div>
                     <div className="mt-1 text-xs text-slate-500">
                       Supervisor: <span className="font-medium">{supervisor.name || supervisor.email}</span>
                     </div>
@@ -650,6 +661,27 @@ export function AdminView() {
                   placeholder="Deixe em branco para manter"
                 />
               </div>
+
+              {editRole === UserRole.Consultor && (
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Adicionar a uma equipe</label>
+                  <select
+                    value={editTeamName ?? ""}
+                    onChange={(e) => setEditTeamName(e.target.value || null)}
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="">Nenhuma equipe</option>
+                    {supervisorTeams.map(({ teamName, supervisor }) => (
+                      <option key={teamName} value={teamName}>
+                        {teamName} ({supervisor.name || supervisor.email})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Este campo só será aplicado se o cargo for Consultor.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="mt-5 flex justify-end gap-2">
