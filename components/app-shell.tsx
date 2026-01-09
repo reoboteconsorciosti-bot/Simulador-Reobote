@@ -184,10 +184,7 @@ export function AppShell({ children }: AppShellProps) {
                       aria-label="Abrir menu do perfil"
                     >
                       <img
-                        src={
-                          user.profile.photoUrl ||
-                          `https://api.dicebear.com/7.x/initials/svg?seed=${user.profile.name.replace(/\s/g, "")}`
-                        }
+                        src="/images/Caiki.jpg"
                         alt={user.profile.name}
                         className="h-7 w-7 flex-shrink-0 rounded-full object-cover border border-slate-200"
                       />

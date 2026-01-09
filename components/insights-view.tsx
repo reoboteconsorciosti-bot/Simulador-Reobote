@@ -453,6 +453,16 @@ export function InsightsView() {
 
     const totalValor = somaValores
 
+    const { totalImoveis, totalAutomoveis } = scoped.reduce(
+      (acc: { totalImoveis: number; totalAutomoveis: number }, it) => {
+        const tipoBem = inferTipoBem(it.inputs)
+        if (tipoBem === "imovel") acc.totalImoveis += 1
+        else if (tipoBem === "automovel") acc.totalAutomoveis += 1
+        return acc
+      },
+      { totalImoveis: 0, totalAutomoveis: 0 },
+    )
+
     return {
       total,
       ultimos7Dias,
@@ -461,6 +471,8 @@ export function InsightsView() {
       totalValor,
       prazoMedioMeses,
       series,
+      totalImoveis,
+      totalAutomoveis,
     }
   }, [items, selectedConsultantId])
 
@@ -484,13 +496,9 @@ export function InsightsView() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            Últimos 14 dias
-          </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-3 py-1 shadow-sm">
             <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-            Dados em tempo (quase) real
+            Dados em tempo real
           </span>
         </div>
       </div>
@@ -593,7 +601,7 @@ export function InsightsView() {
 
             <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-center sm:gap-8">
               {(() => {
-                const total = metrics.totalImoveis + metrics.totalAutomoveis
+                const total = activeMetrics.totalImoveis + activeMetrics.totalAutomoveis
                 if (loading || total === 0) {
                   return (
                     <div className="flex h-32 w-32 items-center justify-center rounded-full bg-slate-50 text-[11px] text-slate-400">
@@ -606,8 +614,8 @@ export function InsightsView() {
                 const strokeWidth = 20
                 const radius = (size - strokeWidth) / 2
                 const circumference = 2 * Math.PI * radius
-                const imoveisFrac = metrics.totalImoveis / total
-                const autosFrac = metrics.totalAutomoveis / total
+                const imoveisFrac = activeMetrics.totalImoveis / total
+                const autosFrac = activeMetrics.totalAutomoveis / total
 
                 const imoveisDash = `${imoveisFrac * circumference} ${circumference}`
                 const autosDash = `${autosFrac * circumference} ${circumference}`
@@ -671,9 +679,9 @@ export function InsightsView() {
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
                   <span className="font-medium">Imóveis</span>
                   <span className="ml-auto text-slate-500">
-                    {loading ? "..." : `${metrics.totalImoveis} (${(
-                      (metrics.totalImoveis /
-                        Math.max(1, metrics.totalImoveis + metrics.totalAutomoveis)) *
+                    {loading ? "..." : `${activeMetrics.totalImoveis} (${(
+                      (activeMetrics.totalImoveis /
+                        Math.max(1, activeMetrics.totalImoveis + activeMetrics.totalAutomoveis)) *
                       100
                     ).toFixed(0)}%)`}
                   </span>
@@ -682,9 +690,9 @@ export function InsightsView() {
                   <span className="h-2.5 w-2.5 rounded-full bg-sky-500" />
                   <span className="font-medium">Automóveis</span>
                   <span className="ml-auto text-slate-500">
-                    {loading ? "..." : `${metrics.totalAutomoveis} (${(
-                      (metrics.totalAutomoveis /
-                        Math.max(1, metrics.totalImoveis + metrics.totalAutomoveis)) *
+                    {loading ? "..." : `${activeMetrics.totalAutomoveis} (${(
+                      (activeMetrics.totalAutomoveis /
+                        Math.max(1, activeMetrics.totalImoveis + activeMetrics.totalAutomoveis)) *
                       100
                     ).toFixed(0)}%)`}
                   </span>
