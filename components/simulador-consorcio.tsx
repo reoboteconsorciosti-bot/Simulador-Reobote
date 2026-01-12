@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Calculator, TrendingUp, CreditCard, Wallet, BarChart3, Target } from "lucide-react"
+import { Calculator, CreditCard, TrendingUp, Wallet, X, Check, CheckCircle, BarChart3, Target, AlertCircle } from "lucide-react"
 import { ComparisonResults } from "@/components/comparison-results"
 import { useAuth } from "@/components/auth-context"
 import { formatCurrency } from "@/lib/formatters"
@@ -73,6 +73,8 @@ export function SimuladorConsorcio() {
   const { user } = useAuth()
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  const [showPdfSuccessModal, setShowPdfSuccessModal] = useState(false)
+  const [showPdfErrorModal, setShowPdfErrorModal] = useState(false)
 
   const [loadedOutputs, setLoadedOutputs] = useState<{
     tipoSimulacao: "consorcio" | "financiamento"
@@ -1118,7 +1120,7 @@ export function SimuladorConsorcio() {
                     size="lg"
                     onClick={async () => {
                       if (!simulacaoOficial) {
-                        alert("Por favor, calcule a simulação oficial antes de gerar o PDF.")
+                        setShowPdfErrorModal(true)
                         return
                       }
 
@@ -1145,7 +1147,7 @@ export function SimuladorConsorcio() {
                         })
 
                         if (res.ok) {
-                          alert("Solicitação enviada com sucesso! O PDF será gerado em instantes.")
+                          setShowPdfSuccessModal(true)
                         } else {
                           const err = await res.json().catch(() => ({}))
                           alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
@@ -1588,6 +1590,68 @@ export function SimuladorConsorcio() {
           )}
         </AnimatePresence>
       </motion.div>
-    </div>
+
+      {/* PDF Success Modal */}
+      {
+        showPdfSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowPdfSuccessModal(false)}
+              aria-hidden="true"
+            />
+            <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/30 dark:text-green-500">
+                  <CheckCircle className="h-8 w-8" />
+                </div>
+
+                <h3 className="text-lg font-semibold text-foreground">Solicitação Enviada!</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Solicitação enviada com sucesso! O PDF será gerado em instantes.
+                </p>
+
+                <Button
+                  className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => setShowPdfSuccessModal(false)}
+                >
+                  Entendi
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* PDF Error/Info Modal */}
+      {showPdfErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowPdfErrorModal(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-4 rounded-full bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-500">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+
+              <h3 className="text-lg font-semibold text-foreground">Atenção</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Por favor, calcule a simulação oficial antes de gerar o PDF.
+              </p>
+
+              <Button
+                className="mt-6 w-full bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={() => setShowPdfErrorModal(false)}
+              >
+                Entendi
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div >
   )
 }

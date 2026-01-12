@@ -37,6 +37,7 @@ export function LoginScreen() {
       <div className="w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-xl">
         <div className="mb-6 text-center">
           <img
+            src="/logo.svg"
             alt="Reobote Consórcios"
             className="mx-auto mt-2 mb-3 h-24 w-auto object-contain"
           />
