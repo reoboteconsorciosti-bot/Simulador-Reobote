@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react"
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react"
 import type { ReactNode } from "react"
 
 import type { User } from "@/lib/auth-types"
@@ -24,7 +24,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const response = await fetch("/api/auth/me", { cache: "no-store" })
     if (!response.ok) {
       setUser(null)
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     const data = (await response.json().catch(() => null)) as { user?: User } | null
     setUser(data?.user ?? null)
-  }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [])
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     // Login fictício para ambiente sem backend:
     // se usar estas credenciais, não chama API e cria um usuário mockado.
     if (email === "teste@reobote.com" && password === "123456") {
@@ -104,9 +104,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     setUser(data.user)
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     try {
       fetch("/api/auth/logout", { method: "POST" })
     } catch {
@@ -118,7 +118,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.localStorage.removeItem("sim-pro-current-view")
     }
     setUser(null)
-  }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       logout,
       refresh,
     }),
-    [user, loading],
+    [user, loading, login, logout, refresh],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

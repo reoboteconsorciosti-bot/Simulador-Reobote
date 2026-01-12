@@ -25,7 +25,7 @@ export function LoginScreen() {
     setSubmitting(true)
     try {
       await login(email, password)
-      router.replace("/app")
+      window.location.href = "/app"
     } catch (err: any) {
       setError(err?.message || "Erro ao fazer login.")
       setSubmitting(false)
@@ -37,8 +37,7 @@ export function LoginScreen() {
       <div className="w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-xl">
         <div className="mb-6 text-center">
           <img
-            src="/images/brand-arrow.png"
-            alt=""
+            alt="Reobote Consórcios"
             className="mx-auto mt-2 mb-3 h-24 w-auto object-contain"
           />
           <h1 className="text-xl font-semibold text-slate-900">Acesse o painel do simulador</h1>

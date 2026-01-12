@@ -67,9 +67,12 @@ const TAXA_CARTA_CREDITO_PADRAO = 0.7
 
 const SIMULATOR_STORAGE_KEY = "sim-pro-simulator-state"
 
+import { formatProposalPayload } from "@/lib/proposal-formatter"
+
 export function SimuladorConsorcio() {
   const { user } = useAuth()
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
+  const [generatingPdf, setGeneratingPdf] = useState(false)
 
   const [loadedOutputs, setLoadedOutputs] = useState<{
     tipoSimulacao: "consorcio" | "financiamento"
@@ -709,7 +712,7 @@ export function SimuladorConsorcio() {
               alt="Reobote Consórcios"
               className="h-20 w-auto object-contain drop-shadow-sm"
             />
-            
+
           </div>
         </div>
         <p className="text-lg text-muted-foreground text-pretty max-w-2xl mx-auto">
@@ -799,330 +802,368 @@ export function SimuladorConsorcio() {
               <CardDescription>Personalize os parâmetros da simulação</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-            <Tabs
-              value={tipoSimulacao}
-              onValueChange={(v) => setTipoSimulacao(v as "consorcio" | "financiamento")}
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="consorcio">Consórcio</TabsTrigger>
-                <TabsTrigger value="financiamento">Financiamento</TabsTrigger>
-              </TabsList>
+              <Tabs
+                value={tipoSimulacao}
+                onValueChange={(v) => setTipoSimulacao(v as "consorcio" | "financiamento")}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="consorcio">Consórcio</TabsTrigger>
+                  <TabsTrigger value="financiamento">Financiamento</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="consorcio" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="valorBem">Valor do Bem (R$)</Label>
-                  <Input
-                    id="valorBem"
-                    type="text"
-                    value={valorBem}
-                    onChange={(e) => {
-                      // Máscara de moeda em tempo real (formato BR): mantém só dígitos e formata como R$ xx.xxx,yy
-                      const digitsOnly = e.target.value.replace(/\D/g, "")
+                <TabsContent value="consorcio" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="valorBem">Valor do Bem (R$)</Label>
+                    <Input
+                      id="valorBem"
+                      type="text"
+                      value={valorBem}
+                      onChange={(e) => {
+                        // Máscara de moeda em tempo real (formato BR): mantém só dígitos e formata como R$ xx.xxx,yy
+                        const digitsOnly = e.target.value.replace(/\D/g, "")
 
-                      if (!digitsOnly) {
-                        setValorBem("")
-                        return
+                        if (!digitsOnly) {
+                          setValorBem("")
+                          return
+                        }
+
+                        const numeric = Number.parseInt(digitsOnly, 10)
+                        const valueAsNumber = numeric / 100
+                        const formatted = valueAsNumber.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                        setValorBem(formatted)
+                      }}
+                      placeholder="120.000,00"
+                      className={errosObrigatorios.valorBem ? "border-red-500 focus-visible:ring-red-500" : ""}
+                    />
+                    {errosObrigatorios.valorBem && (
+                      <p className="text-xs text-red-600">Este campo é obrigatório.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="prazoMeses">Prazo (meses)</Label>
+                    <Input
+                      id="prazoMeses"
+                      type="number"
+                      value={prazoMeses}
+                      onChange={(e) => setPrazoMeses(e.target.value)}
+                      placeholder="60"
+                      className={errosObrigatorios.prazoMeses ? "border-red-500 focus-visible:ring-red-500" : ""}
+                    />
+                    {errosObrigatorios.prazoMeses && (
+                      <p className="text-xs text-red-600">Informe o prazo em meses.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="taxaAdmin">Taxa de Administração (%)</Label>
+                    <Input
+                      id="taxaAdmin"
+                      type="number"
+                      step="0.1"
+                      value={taxaAdministracao}
+                      onChange={(e) => setTaxaAdministracao(e.target.value)}
+                      placeholder="15"
+                      className={errosObrigatorios.taxaAdministracao ? "border-red-500 focus-visible:ring-red-500" : ""}
+                    />
+                    {errosObrigatorios.taxaAdministracao && (
+                      <p className="text-xs text-red-600">Informe a taxa de administração.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="percentualParcelaOficial">% da Parcela após plano</Label>
+                    <Input
+                      id="percentualParcelaOficial"
+                      type="text"
+                      value={
+                        percentualParcelaOficial !== null
+                          ? `${percentualParcelaOficial.toFixed(4).replace(".", ",")}%`
+                          : ""
                       }
-
-                      const numeric = Number.parseInt(digitsOnly, 10)
-                      const valueAsNumber = numeric / 100
-                      const formatted = valueAsNumber.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                      setValorBem(formatted)
-                    }}
-                    placeholder="120.000,00"
-                    className={errosObrigatorios.valorBem ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  />
-                  {errosObrigatorios.valorBem && (
-                    <p className="text-xs text-red-600">Este campo é obrigatório.</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="prazoMeses">Prazo (meses)</Label>
-                  <Input
-                    id="prazoMeses"
-                    type="number"
-                    value={prazoMeses}
-                    onChange={(e) => setPrazoMeses(e.target.value)}
-                    placeholder="60"
-                    className={errosObrigatorios.prazoMeses ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  />
-                  {errosObrigatorios.prazoMeses && (
-                    <p className="text-xs text-red-600">Informe o prazo em meses.</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="taxaAdmin">Taxa de Administração (%)</Label>
-                  <Input
-                    id="taxaAdmin"
-                    type="number"
-                    step="0.1"
-                    value={taxaAdministracao}
-                    onChange={(e) => setTaxaAdministracao(e.target.value)}
-                    placeholder="15"
-                    className={errosObrigatorios.taxaAdministracao ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  />
-                  {errosObrigatorios.taxaAdministracao && (
-                    <p className="text-xs text-red-600">Informe a taxa de administração.</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="percentualParcelaOficial">% da Parcela após plano</Label>
-                  <Input
-                    id="percentualParcelaOficial"
-                    type="text"
-                    value={
-                      percentualParcelaOficial !== null
-                        ? `${percentualParcelaOficial.toFixed(4).replace(".", ",")}%`
-                        : ""
-                    }
-                    readOnly
-                    placeholder="Gerado pela Simulação Oficial"
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="planoLight">Plano Redução</Label>
-                    <select
-                      id="planoLight"
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={planoLight}
-                      onChange={(e) => setPlanoLight(e.target.value)}
-                    >
-                      <option value="1">Integral (Sem redução)</option>
-                      <option value="2">Plano Flex 10%</option>
-                      <option value="3">Plano Flex 20%</option>
-                      <option value="4">Plano Flex 30%</option>
-                      <option value="5">Plano Flex 40%</option>
-                      <option value="6">Plano Flex 50%</option>
-                    </select>
+                      readOnly
+                      placeholder="Gerado pela Simulação Oficial"
+                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="seguroPrestamista">Seguro Prestamista</Label>
-                    <select
-                      id="seguroPrestamista"
-                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      value={seguroPrestamista}
-                      onChange={(e) => setSeguroPrestamista(e.target.value)}
-                    >
-                      <option value="1">Automóvel</option>
-                      <option value="2">Imóvel</option>
-                      <option value="3">Sem seguro</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-semibold">Configuração Oficial do Lance</Label>
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="percentualOfertado">Lance Ofertado (%)</Label>
-                      <Input
-                        id="percentualOfertado"
-                        type="number"
-                        step="0.1"
-                        value={percentualOfertado}
-                        onChange={(e) => setPercentualOfertado(e.target.value)}
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="percentualEmbutido">Lance Embutido (%)</Label>
-                      <Input
-                        id="percentualEmbutido"
-                        type="number"
-                        step="0.1"
-                        value={percentualEmbutido}
-                        onChange={(e) => setPercentualEmbutido(e.target.value)}
-                        placeholder="0"
-                        className={lanceError ? "border-red-500 focus-visible:ring-red-500" : ""}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lanceNaAssembleia">Mês do Lance (Assembleia)</Label>
-                      <Input
-                        id="lanceNaAssembleia"
-                        type="number"
-                        step="1"
-                        value={lanceNaAssembleia}
-                        onChange={(e) => setLanceNaAssembleia(e.target.value)}
-                        placeholder="0 (sem mês definido)"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="diluirLance">Forma de Abatimento do Lance</Label>
+                      <Label htmlFor="planoLight">Plano Redução</Label>
                       <select
-                        id="diluirLance"
+                        id="planoLight"
                         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        value={diluirLance}
-                        onChange={(e) => setDiluirLance(e.target.value)}
+                        value={planoLight}
+                        onChange={(e) => setPlanoLight(e.target.value)}
                       >
-                        <option value="1">Sim (Abater Prazo)</option>
-                        <option value="2">LUDC</option>
-                        <option value="3">Não (Abater Parcelas)</option>
+                        <option value="1">Integral (Sem redução)</option>
+                        <option value="2">Plano Flex 10%</option>
+                        <option value="3">Plano Flex 20%</option>
+                        <option value="4">Plano Flex 30%</option>
+                        <option value="5">Plano Flex 40%</option>
+                        <option value="6">Plano Flex 50%</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="seguroPrestamista">Seguro Prestamista</Label>
+                      <select
+                        id="seguroPrestamista"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        value={seguroPrestamista}
+                        onChange={(e) => setSeguroPrestamista(e.target.value)}
+                      >
+                        <option value="1">Automóvel</option>
+                        <option value="2">Imóvel</option>
+                        <option value="3">Sem seguro</option>
                       </select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 items-end pt-2 border-t border-muted">
-                    <div className="space-y-1 text-sm">
-                      {lanceError && <p className="text-xs text-red-600">{lanceError}</p>}
-                      <p className="font-medium">Lance Pago</p>
-                      <p className="text-muted-foreground">
-                        {Math.max(
-                          0,
-                          (Number(percentualOfertado) || 0) - (Number(percentualEmbutido) || 0),
-                        ).toFixed(2)}
-                        %
-                      </p>
-                      <p className="text-muted-foreground">
-                        {simulacaoOficial
-                          ? formatCurrency(
+
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Configuração Oficial do Lance</Label>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="percentualOfertado">Lance Ofertado (%)</Label>
+                        <Input
+                          id="percentualOfertado"
+                          type="number"
+                          step="0.1"
+                          value={percentualOfertado}
+                          onChange={(e) => setPercentualOfertado(e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="percentualEmbutido">Lance Embutido (%)</Label>
+                        <Input
+                          id="percentualEmbutido"
+                          type="number"
+                          step="0.1"
+                          value={percentualEmbutido}
+                          onChange={(e) => setPercentualEmbutido(e.target.value)}
+                          placeholder="0"
+                          className={lanceError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lanceNaAssembleia">Mês do Lance (Assembleia)</Label>
+                        <Input
+                          id="lanceNaAssembleia"
+                          type="number"
+                          step="1"
+                          value={lanceNaAssembleia}
+                          onChange={(e) => setLanceNaAssembleia(e.target.value)}
+                          placeholder="0 (sem mês definido)"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="diluirLance">Forma de Abatimento do Lance</Label>
+                        <select
+                          id="diluirLance"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={diluirLance}
+                          onChange={(e) => setDiluirLance(e.target.value)}
+                        >
+                          <option value="1">Sim (Abater Prazo)</option>
+                          <option value="2">LUDC</option>
+                          <option value="3">Não (Abater Parcelas)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 items-end pt-2 border-t border-muted">
+                      <div className="space-y-1 text-sm">
+                        {lanceError && <p className="text-xs text-red-600">{lanceError}</p>}
+                        <p className="font-medium">Lance Pago</p>
+                        <p className="text-muted-foreground">
+                          {Math.max(
+                            0,
+                            (Number(percentualOfertado) || 0) - (Number(percentualEmbutido) || 0),
+                          ).toFixed(2)}
+                          %
+                        </p>
+                        <p className="text-muted-foreground">
+                          {simulacaoOficial
+                            ? formatCurrency(
                               Math.max(
                                 0,
                                 simulacaoOficial.lanceOfertadoValor - simulacaoOficial.lanceEmbutidoValor,
                               ),
                             )
-                          : "R$ 0,00"}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {simulacaoOficial
-                          ? `Lance embutido: ${formatCurrency(simulacaoOficial.lanceEmbutidoValor)}`
-                          : "Lance embutido: R$ 0,00"}
-                      </p>
+                            : "R$ 0,00"}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {simulacaoOficial
+                            ? `Lance embutido: ${formatCurrency(simulacaoOficial.lanceEmbutidoValor)}`
+                            : "Lance embutido: R$ 0,00"}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>Rentabilidade das Opções (% a.m. equivalente)</Label>
-                  <div className="rounded-md border bg-muted px-3 py-2 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span>Consórcio</span>
-                      <span className="font-semibold">
-                        {(rentabilidadeConsorcio * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Financiamento</span>
-                      <span className="font-semibold text-red-600">
-                        {(rentabilidadeFinanciamento * 100).toFixed(2)}%
-                      </span>
+                  <div className="space-y-2">
+                    <Label>Rentabilidade das Opções (% a.m. equivalente)</Label>
+                    <div className="rounded-md border bg-muted px-3 py-2 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span>Consórcio</span>
+                        <span className="font-semibold">
+                          {(rentabilidadeConsorcio * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Financiamento</span>
+                        <span className="font-semibold text-red-600">
+                          {(rentabilidadeFinanciamento * 100).toFixed(2)}%
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </TabsContent>
+                </TabsContent>
 
-              <TabsContent value="financiamento" className="space-y-4 mt-4">
+                <TabsContent value="financiamento" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="valorBemFin">Valor do Bem (R$)</Label>
+                    <Input
+                      id="valorBemFin"
+                      type="text"
+                      value={valorBemFin}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, "")
+
+                        if (!digitsOnly) {
+                          setValorBemFin("")
+                          return
+                        }
+
+                        const numeric = Number.parseInt(digitsOnly, 10)
+                        const valueAsNumber = numeric / 100
+                        const formatted = valueAsNumber.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                        setValorBemFin(formatted)
+                      }}
+                      placeholder="120.000,00"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="prazoMesesFin">Prazo (meses)</Label>
+                    <Input
+                      id="prazoMesesFin"
+                      type="number"
+                      value={prazoMesesFin}
+                      onChange={(e) => setPrazoMesesFin(e.target.value)}
+                      placeholder="60"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="taxaFinanciamento">Taxa de Juros (% a.m.)</Label>
+                    <Input
+                      id="taxaFinanciamento"
+                      type="number"
+                      step="0.1"
+                      value={taxaFinanciamento}
+                      onChange={(e) => setTaxaFinanciamento(e.target.value)}
+                      placeholder="2.5"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="entrada">Entrada (%)</Label>
+                    <Input
+                      id="entrada"
+                      type="number"
+                      step="1"
+                      value={entrada}
+                      onChange={(e) => setEntrada(e.target.value)}
+                      placeholder="30"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Rentabilidade das Opções (% a.m. equivalente)</Label>
+                    <div className="rounded-md border bg-muted px-3 py-2 text-xs space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span>Consórcio</span>
+                        <span className="font-semibold">
+                          {(rentabilidadeConsorcio * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Financiamento</span>
+                        <span className="font-semibold text-red-600">
+                          {(rentabilidadeFinanciamento * 100).toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              {tipoSimulacao === "consorcio" && (
                 <div className="space-y-2">
-                  <Label htmlFor="valorBemFin">Valor do Bem (R$)</Label>
-                  <Input
-                    id="valorBemFin"
-                    type="text"
-                    value={valorBemFin}
-                    onChange={(e) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, "")
+                  <Button onClick={handleSimular} className="w-full" size="lg">
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Calcular Simulação
+                  </Button>
 
-                      if (!digitsOnly) {
-                        setValorBemFin("")
+                  <Button
+                    type="button"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    size="lg"
+                    onClick={async () => {
+                      if (!simulacaoOficial) {
+                        alert("Por favor, calcule a simulação oficial antes de gerar o PDF.")
                         return
                       }
 
-                      const numeric = Number.parseInt(digitsOnly, 10)
-                      const valueAsNumber = numeric / 100
-                      const formatted = valueAsNumber.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })
-                      setValorBemFin(formatted)
+                      setGeneratingPdf(true)
+                      try {
+                        const payload = formatProposalPayload(
+                          {
+                            nomeCliente,
+                            nomeConsultor,
+                            valorBem: baseValorBem,
+                            prazoMeses: basePrazoMeses,
+                            taxaAdministracao,
+                            percentualOfertado,
+                            percentualEmbutido,
+                            tipoBem,
+                          },
+                          simulacaoOficial
+                        )
+
+                        const res = await fetch("/api/webhook/proposal", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(payload)
+                        })
+
+                        if (res.ok) {
+                          alert("Solicitação enviada com sucesso! O PDF será gerado em instantes.")
+                        } else {
+                          const err = await res.json().catch(() => ({}))
+                          alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
+                        }
+                      } catch (error) {
+                        console.error(error)
+                        alert("Erro de conexão ao tentar gerar o PDF.")
+                      } finally {
+                        setGeneratingPdf(false)
+                      }
                     }}
-                    placeholder="120.000,00"
-                  />
+                    disabled={generatingPdf}
+                  >
+                    {generatingPdf ? "Enviando..." : "Gerar PDF"}
+                  </Button>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="prazoMesesFin">Prazo (meses)</Label>
-                  <Input
-                    id="prazoMesesFin"
-                    type="number"
-                    value={prazoMesesFin}
-                    onChange={(e) => setPrazoMesesFin(e.target.value)}
-                    placeholder="60"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="taxaFinanciamento">Taxa de Juros (% a.m.)</Label>
-                  <Input
-                    id="taxaFinanciamento"
-                    type="number"
-                    step="0.1"
-                    value={taxaFinanciamento}
-                    onChange={(e) => setTaxaFinanciamento(e.target.value)}
-                    placeholder="2.5"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="entrada">Entrada (%)</Label>
-                  <Input
-                    id="entrada"
-                    type="number"
-                    step="1"
-                    value={entrada}
-                    onChange={(e) => setEntrada(e.target.value)}
-                    placeholder="30"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Rentabilidade das Opções (% a.m. equivalente)</Label>
-                  <div className="rounded-md border bg-muted px-3 py-2 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span>Consórcio</span>
-                      <span className="font-semibold">
-                        {(rentabilidadeConsorcio * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Financiamento</span>
-                      <span className="font-semibold text-red-600">
-                        {(rentabilidadeFinanciamento * 100).toFixed(2)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            {tipoSimulacao === "consorcio" && (
-              <div className="space-y-2">
-                <Button onClick={handleSimular} className="w-full" size="lg">
-                  <Calculator className="w-4 h-4 mr-2" />
-                  Calcular Simulação
-                </Button>
-
-                <Button
-                  type="button"
-                  className="w-full bg-red-600 hover:bg-red-700 text-white"
-                  size="lg"
-                  onClick={() => {
-                    // TODO: implementar geração real de PDF da simulação
-                    console.log("Gerar PDF ainda não implementado")
-                  }}
-                >
-                  Gerar PDF
-                </Button>
-              </div>
-            )}
-          </CardContent>
+              )}
+            </CardContent>
           </Card>
         </motion.div>
 
@@ -1150,121 +1191,121 @@ export function SimuladorConsorcio() {
                     >
                       <Card className="bg-primary text-primary-foreground">
                         <CardHeader className="pb-3">
-                        <CardTitle className="text-base font-medium flex items-center gap-2">
-                          <CreditCard className="w-5 h-5" />
-                          <span>
-                            {(nomeCliente && nomeCliente.trim()) || "Cliente"}, aqui você faz a melhor escolha de consórcio
-                            para realizar o seu sonho.
-                          </span>
-                        </CardTitle>
-                      </CardHeader>
+                          <CardTitle className="text-base font-medium flex items-center gap-2">
+                            <CreditCard className="w-5 h-5" />
+                            <span>
+                              {(nomeCliente && nomeCliente.trim()) || "Cliente"}, aqui você faz a melhor escolha de consórcio
+                              para realizar o seu sonho.
+                            </span>
+                          </CardTitle>
+                        </CardHeader>
                         <CardContent>
-                        {simulacaoOficial ? (
-                          <>
-                            <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold">
-                                  <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.valorParcela)}</span>
-                                  <span className="whitespace-nowrap">/mês</span>
+                          {simulacaoOficial ? (
+                            <>
+                              <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold">
+                                    <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.valorParcela)}</span>
+                                    <span className="whitespace-nowrap">/mês</span>
+                                  </div>
+                                  <p className="text-sm text-primary-foreground/80">
+                                    Parcela inicial antes da contemplação
+                                  </p>
                                 </div>
-                                <p className="text-sm text-primary-foreground/80">
-                                  Parcela inicial antes da contemplação
-                                </p>
-                              </div>
-                              <div className="min-w-0 xl:text-right">
-                                <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold xl:justify-end">
-                                  <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.parcelasAPagarValor)}</span>
-                                  <span className="whitespace-nowrap">/mês</span>
+                                <div className="min-w-0 xl:text-right">
+                                  <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold xl:justify-end">
+                                    <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.parcelasAPagarValor)}</span>
+                                    <span className="whitespace-nowrap">/mês</span>
+                                  </div>
+                                  <p className="text-sm text-primary-foreground/80">
+                                    Após contemplação ({simulacaoOficial.parcelasAPagarQtd}x)
+                                  </p>
                                 </div>
-                                <p className="text-sm text-primary-foreground/80">
-                                  Após contemplação ({simulacaoOficial.parcelasAPagarQtd}x)
-                                </p>
                               </div>
-                            </div>
-                            <p className="text-xs text-primary-foreground/80">
-                              Total estimado do plano (aprox.): {formatCurrency(effectiveConsorcio.custoTotal)}
-                            </p>
+                              <p className="text-xs text-primary-foreground/80">
+                                Total estimado do plano (aprox.): {formatCurrency(effectiveConsorcio.custoTotal)}
+                              </p>
 
-                            {/* Tempo de acumulação guardando a parcela do consórcio */}
-                            {(() => {
-                              const valorCartaTotal =
-                                typeof effectiveConsorcio?.valorBem === "number" && Number.isFinite(effectiveConsorcio.valorBem)
-                                  ? effectiveConsorcio.valorBem
-                                  : parseCurrencyInput(valorBem)
+                              {/* Tempo de acumulação guardando a parcela do consórcio */}
+                              {(() => {
+                                const valorCartaTotal =
+                                  typeof effectiveConsorcio?.valorBem === "number" && Number.isFinite(effectiveConsorcio.valorBem)
+                                    ? effectiveConsorcio.valorBem
+                                    : parseCurrencyInput(valorBem)
 
-                              const valorLanceEmbutido = simulacaoOficial.lanceEmbutidoValor
-                              const temLanceEmbutido = valorLanceEmbutido > 0
+                                const valorLanceEmbutido = simulacaoOficial.lanceEmbutidoValor
+                                const temLanceEmbutido = valorLanceEmbutido > 0
 
-                              const mesesCarta = calcularMesesAcumulacaoConsorcio(
-                                effectiveConsorcio.parcelaMensal,
-                                valorCartaTotal,
-                              )
+                                const mesesCarta = calcularMesesAcumulacaoConsorcio(
+                                  effectiveConsorcio.parcelaMensal,
+                                  valorCartaTotal,
+                                )
 
-                              const mesesCreditoDisponivel = temLanceEmbutido
-                                ? calcularMesesAcumulacaoConsorcio(
+                                const mesesCreditoDisponivel = temLanceEmbutido
+                                  ? calcularMesesAcumulacaoConsorcio(
                                     effectiveConsorcio.parcelaMensal,
                                     valorCartaTotal,
                                     valorLanceEmbutido,
                                   )
-                                : 0
+                                  : 0
 
-                              if (!mesesCarta && !mesesCreditoDisponivel) return null
+                                if (!mesesCarta && !mesesCreditoDisponivel) return null
 
-                              return (
-                                <div
-                                  id="tempo-acumulacao-consorcio"
-                                  className="mt-3 rounded-md bg-primary-foreground/5 px-3 py-2 text-xs md:text-sm"
-                                >
-                                  <p className="font-semibold mb-1">Em quanto tempo sua parcela vira crédito?</p>
-                                  {mesesCarta ? (
-                                    <p>
-                                      Guardando mensalmente o valor da parcela do consórcio, em{" "}
-                                      <span className="font-semibold">{mesesCarta} meses</span> você acumularia o valor total do bem.
-                                    </p>
-                                  ) : null}
-                                  {temLanceEmbutido && mesesCreditoDisponivel ? (
-                                    <p className="mt-1">
-                                      Considerando o lance embutido, em{" "}
-                                      <span className="font-semibold">{mesesCreditoDisponivel} meses</span> você acumularia o valor do
-                                      crédito disponível.
-                                    </p>
-                                  ) : null}
-                                </div>
-                              )
-                            })()}
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-4xl font-bold mb-2">{formatCurrency(effectiveConsorcio.parcelaMensal)}/mês</div>
-                            <p className="text-sm text-primary-foreground/80">
-                              Total: {formatCurrency(effectiveConsorcio.custoTotal)}
-                            </p>
-                          </>
-                        )}
-                        {effectiveConsorcio.valorLance > 0 && (
-                          <div className="mt-2 pt-2 border-t border-primary-foreground/20 space-y-1">
-                            {effectiveConsorcio.tipoLance === "livre" && (
-                              <p className="text-sm text-primary-foreground/90">
-                                Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
+                                return (
+                                  <div
+                                    id="tempo-acumulacao-consorcio"
+                                    className="mt-3 rounded-md bg-primary-foreground/5 px-3 py-2 text-xs md:text-sm"
+                                  >
+                                    <p className="font-semibold mb-1">Em quanto tempo sua parcela vira crédito?</p>
+                                    {mesesCarta ? (
+                                      <p>
+                                        Guardando mensalmente o valor da parcela do consórcio, em{" "}
+                                        <span className="font-semibold">{mesesCarta} meses</span> você acumularia o valor total do bem.
+                                      </p>
+                                    ) : null}
+                                    {temLanceEmbutido && mesesCreditoDisponivel ? (
+                                      <p className="mt-1">
+                                        Considerando o lance embutido, em{" "}
+                                        <span className="font-semibold">{mesesCreditoDisponivel} meses</span> você acumularia o valor do
+                                        crédito disponível.
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                )
+                              })()}
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-4xl font-bold mb-2">{formatCurrency(effectiveConsorcio.parcelaMensal)}/mês</div>
+                              <p className="text-sm text-primary-foreground/80">
+                                Total: {formatCurrency(effectiveConsorcio.custoTotal)}
                               </p>
-                            )}
-                            {effectiveConsorcio.tipoLance === "embutido" && (
-                              <p className="text-sm text-primary-foreground/90">
-                                Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
-                              </p>
-                            )}
-                            {effectiveConsorcio.tipoLance === "ambos" && (
-                              <>
+                            </>
+                          )}
+                          {effectiveConsorcio.valorLance > 0 && (
+                            <div className="mt-2 pt-2 border-t border-primary-foreground/20 space-y-1">
+                              {effectiveConsorcio.tipoLance === "livre" && (
                                 <p className="text-sm text-primary-foreground/90">
                                   Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
                                 </p>
+                              )}
+                              {effectiveConsorcio.tipoLance === "embutido" && (
                                 <p className="text-sm text-primary-foreground/90">
                                   Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
                                 </p>
-                              </>
-                            )}
-                          </div>
-                        )}
+                              )}
+                              {effectiveConsorcio.tipoLance === "ambos" && (
+                                <>
+                                  <p className="text-sm text-primary-foreground/90">
+                                    Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
+                                  </p>
+                                  <p className="text-sm text-primary-foreground/90">
+                                    Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
+                                  </p>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </motion.div>

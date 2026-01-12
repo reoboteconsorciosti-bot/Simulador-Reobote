@@ -104,17 +104,17 @@ export function AppShell({ children }: AppShellProps) {
       <aside className="pointer-events-auto flex-shrink-0">
         <div
           className={`sidebar transform-gpu border-r border-slate-200 bg-white/95 shadow-lg transition-all duration-300 ease-out ${isDesktop
-              ? // Desktop: sidebar participa do layout em coluna
-              `${isOpen ? "w-56" : "w-16"} relative h-screen`
-              : // Mobile/Tablet: sidebar fixa sobrepondo o conteúdo
-              `${isOpen ? "fixed inset-y-0 left-0 w-56 z-40" : "fixed inset-y-0 -left-full w-56 z-40"}`
+            ? // Desktop: sidebar participa do layout em coluna
+            `${isOpen ? "w-56" : "w-16"} relative h-screen`
+            : // Mobile/Tablet: sidebar fixa sobrepondo o conteúdo
+            `${isOpen ? "fixed inset-y-0 left-0 w-56 z-40" : "fixed inset-y-0 -left-full w-56 z-40"}`
             }`}
         >
           <div className="flex w-full flex-col h-screen overflow-y-auto lg:sticky lg:top-6 pt-6">
             {/* Cabeçalho da barra com logo compacto e botão de toggle */}
             <div className="flex items-center justify-between px-2 py-3">
               <div className="flex items-center gap-2 overflow-hidden">
-                <span className="truncate text-base font-semibold text-slate-900">
+                <span className="truncate text-sm font-semibold text-slate-900">
                   {isOpen ? "Reobote Consórcios" : "Reobote"}
                 </span>
               </div>
@@ -258,8 +258,8 @@ function SidebarItem({ active, icon, label, isOpen, onClick }: SidebarItemProps)
       type="button"
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-lg px-2 py-3 text-left text-sm font-medium transition-all duration-200 ${active
-          ? "bg-blue-50 text-blue-600"
-          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+        ? "bg-blue-50 text-blue-600"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         }`}
     >
       <span

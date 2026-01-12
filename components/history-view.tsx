@@ -359,27 +359,27 @@ export function HistoryView() {
             placeholder="Filtrar por nome do cliente"
             className="w-full sm:w-64 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-1"
           />
-        
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={openConfirmClear}
-            className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={loading || rows.length === 0}
-            title={rows.length === 0 ? "Nenhuma simulação para remover" : ""}
-          >
-            Limpar histórico
-          </button>
 
-          <button
-            type="button"
-            onClick={() => load("reset")}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            disabled={loading}
-          >
-            {loading ? "Atualizando..." : "Atualizar"}
-          </button>
-        </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openConfirmClear}
+              className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={loading || rows.length === 0}
+              title={rows.length === 0 ? "Nenhuma simulação para remover" : ""}
+            >
+              Limpar histórico
+            </button>
+
+            <button
+              type="button"
+              onClick={() => load("reset")}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              disabled={loading}
+            >
+              {loading ? "Atualizando..." : "Atualizar"}
+            </button>
+          </div>
         </div>
       </div>
 
