@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Calculator, CreditCard, TrendingUp, Wallet, X, Check, CheckCircle, BarChart3, Target, AlertCircle } from "lucide-react"
+import { Calculator, CreditCard, TrendingUp, Wallet, X, Check, CheckCircle, BarChart3, Target, AlertCircle, Trash2 } from "lucide-react"
 import { ComparisonResults } from "@/components/comparison-results"
 import { useAuth } from "@/components/auth-context"
 import { formatCurrency } from "@/lib/formatters"
@@ -428,6 +428,107 @@ export function SimuladorConsorcio() {
     return resultado
   }
 
+  const handleSimular = () => {
+    const faltandoValorBem = !baseValorBem || baseValorBem.trim() === ""
+    const faltandoPrazo = !basePrazoMeses || basePrazoMeses.trim() === ""
+    const faltandoTaxa = tipoSimulacao === "consorcio" ? !taxaAdministracao || taxaAdministracao.trim() === "" : false
+
+    const temErro = faltandoValorBem || faltandoPrazo || faltandoTaxa
+    setErrosObrigatorios({
+      valorBem: faltandoValorBem,
+      prazoMeses: faltandoPrazo,
+      taxaAdministracao: faltandoTaxa,
+    })
+
+    if (temErro) {
+      return
+    }
+
+    const ofertadoNumero = Number(percentualOfertado) || 0
+    const embutidoNumero = Number(percentualEmbutido) || 0
+
+    if (embutidoNumero > 0 && embutidoNumero > ofertadoNumero) {
+      setLanceError("O lance embutido (%) deve ser menor que o lance ofertado (%).")
+      return
+    }
+
+    setLanceError(null)
+
+    // Dispara também a simulação oficial da planilha
+    const oficial = handleCalcularSimulacaoOficial()
+    setShowResults(true)
+
+    // Ao simular novamente, o resultado passa a ser o calculado no momento.
+    setLoadedOutputs(null)
+
+    // Persiste a simulação (backend aplica recorte por perfil no histórico)
+    void salvarSimulacao({
+      inputs: {
+        ...simulatorSnapshot,
+        tipoSimulacao,
+        valorBemNumero: parseCurrencyInput(baseValorBem),
+        prazoMesesNumero: Number(basePrazoMeses) || 0,
+        taxaAdministracaoNumero: Number(taxaAdministracao) || 0,
+        valorBemFinNumero: parseCurrencyInput(valorBemFin),
+        prazoMesesFinNumero: Number(prazoMesesFin) || 0,
+      },
+      outputs: {
+        tipoSimulacao: tipoSimulacao,
+        consorcio: calcularConsorcio(),
+        financiamento: calcularFinanciamento(),
+        aVista: calcularAVista(),
+        outros: calcularOutros(),
+        simulacaoOficial: oficial,
+        percentualParcelaBase: null, // Always null for new simulations
+        percentualParcelaOficial: oficial?.percentualParcela,
+      },
+    })
+
+    // Scroll to results
+    setTimeout(() => {
+      if (resultadosRef.current) {
+        resultadosRef.current.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+    }, 100)
+  }
+
+  const handleLimparDados = () => {
+    // Reset basic fields
+    setNomeCliente("")
+    setNomeConsultor(user?.profile?.name || "")
+    setTipoBem("imovel")
+
+    // Reset simulation values
+    setValorBem("")
+    setPrazoMeses("")
+    setTaxaAdministracao("")
+    setValorBemFin("")
+    setPrazoMesesFin("")
+    setTaxaFinanciamento("")
+    setEntrada("")
+
+    // Reset advanced configs
+    setPlanoLight("1")
+    setSeguroPrestamista("3")
+    setPercentualOfertado("")
+    setPercentualEmbutido("")
+    setDiluirLance("1")
+    setLanceNaAssembleia("")
+
+    // Reset results/state
+    setSimulacaoOficial(null)
+    setPercentualParcelaOficial(null)
+    setShowResults(false)
+    setErrosObrigatorios({
+      valorBem: false,
+      prazoMeses: false,
+      taxaAdministracao: false
+    })
+
+    // Reset defaults logic
+    setTipoSimulacao("consorcio")
+  }
+
   const calcularConsorcio = () => {
     const valor = parseCurrencyInput(baseValorBem)
     const prazo = Number.parseInt(basePrazoMeses)
@@ -582,67 +683,7 @@ export function SimuladorConsorcio() {
     }
   }
 
-  const handleSimular = () => {
-    const faltandoValorBem = !baseValorBem || baseValorBem.trim() === ""
-    const faltandoPrazo = !basePrazoMeses || basePrazoMeses.trim() === ""
-    const faltandoTaxa = tipoSimulacao === "consorcio" ? !taxaAdministracao || taxaAdministracao.trim() === "" : false
 
-    const temErro = faltandoValorBem || faltandoPrazo || faltandoTaxa
-    setErrosObrigatorios({
-      valorBem: faltandoValorBem,
-      prazoMeses: faltandoPrazo,
-      taxaAdministracao: faltandoTaxa,
-    })
-
-    if (temErro) {
-      return
-    }
-
-    const ofertadoNumero = Number(percentualOfertado) || 0
-    const embutidoNumero = Number(percentualEmbutido) || 0
-
-    if (embutidoNumero > 0 && embutidoNumero > ofertadoNumero) {
-      setLanceError("O lance embutido (%) deve ser menor que o lance ofertado (%).")
-      return
-    }
-
-    setLanceError(null)
-
-    // Dispara também a simulação oficial da planilha
-    const oficial = handleCalcularSimulacaoOficial()
-    setShowResults(true)
-
-    // Ao simular novamente, o resultado passa a ser o calculado no momento.
-    setLoadedOutputs(null)
-
-    // Persiste a simulação (backend aplica recorte por perfil no histórico)
-    void salvarSimulacao({
-      inputs: {
-        ...simulatorSnapshot,
-        tipoSimulacao,
-        valorBemNumero: parseCurrencyInput(baseValorBem),
-        prazoMesesNumero: Number(basePrazoMeses) || 0,
-        taxaAdministracaoNumero: Number(taxaAdministracao) || 0,
-        valorBemFinNumero: parseCurrencyInput(valorBemFin),
-        prazoMesesFinNumero: Number(prazoMesesFin) || 0,
-      },
-      outputs: {
-        tipoSimulacao,
-        consorcio,
-        financiamento,
-        aVista,
-        outros,
-        simulacaoOficial: oficial,
-        percentualParcelaBase,
-        percentualParcelaOficial,
-      },
-    })
-
-    // Após mostrar os resultados, rola suavemente para o container principal de resultados
-    // setTimeout(() => {
-    //   resultadosRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-    // }, 50)
-  }
 
   const consorcio = calcularConsorcio()
   const financiamento = calcularFinanciamento()
@@ -740,6 +781,17 @@ export function SimuladorConsorcio() {
               : "w-full max-w-xl space-y-4"
           }
         >
+          <div className="flex justify-end mb-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLimparDados}
+              className="text-muted-foreground hover:text-red-600 hover:bg-red-50 border-dashed"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Limpar Dados
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
