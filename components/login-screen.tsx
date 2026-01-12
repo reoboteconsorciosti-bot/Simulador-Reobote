@@ -37,9 +37,9 @@ export function LoginScreen() {
       <div className="w-full max-w-md rounded-2xl bg-white/90 p-8 shadow-xl">
         <div className="mb-6 text-center">
           <img
-            src="/logo.svg"
+            src="/logo-chart.jpg"
             alt="Reobote Consórcios"
-            className="mx-auto mt-2 mb-3 h-24 w-auto object-contain"
+            className="mx-auto mt-2 mb-3 h-24 w-auto object-contain rounded-lg"
           />
           <h1 className="text-xl font-semibold text-slate-900">Acesse o painel do simulador</h1>
           <p className="mt-1 text-sm text-slate-500">Entre para salvar simulações, ver histórico e acessar insights.</p>

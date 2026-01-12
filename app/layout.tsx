@@ -14,9 +14,9 @@ export const metadata: Metadata = {
     "Simulador completo de consórcios com comparação entre consórcio, financiamento, à vista e outras modalidades",
   generator: "v0.app",
   icons: {
-    icon: "/logo.svg",
-    shortcut: "/logo.svg",
-    apple: "/logo.svg",
+    icon: "/Frame 2.svg",
+    shortcut: "/Frame 2.svg",
+    apple: "/Frame 2.svg",
   },
 }
 
