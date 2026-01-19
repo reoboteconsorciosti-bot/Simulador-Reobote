@@ -127,17 +127,20 @@ export function calculateSimulation(inputs: SimulationInputs): SimulationOutputs
 
   const B30_creditoDisponivel = credito - C20_lance_embutido_val
 
+  // Regra de negócio: sempre que houver lance > 0, ele deve representar parcelas abatidas
+  // na contagem de "qtd parcelas pagas" / "parcelas a pagar". A forma de abatimento
+  // (diluirLance) só altera se há redução de prazo ou apenas de valor, mas **não pode**
+  // zerar o abatimento quando houver lance.
   let parcelasAbatidas = 0
-  if (diluirLance === 1) {
-    // 1 - Sim (Abater Prazo) – **novo critério**: abate prazo apenas pelas parcelas do lance embutido,
-    // não pelo lance total. Assim, usamos D20_qtd_parcelas_embutido em vez de totalBidParcels.
-    parcelasAbatidas = D20_qtd_parcelas_embutido
-  } else if (diluirLance === 3) {
-    // 3 - Não (Abater Parcelas) – mantém prazo, não abate parcelas
-    parcelasAbatidas = 0
-  } else if (diluirLance === 2) {
-    // 2 - LUDC – também não abate prazo na contagem de parcelas
-    parcelasAbatidas = 0
+  if (totalBidParcels > 0) {
+    if (diluirLance === 2) {
+      // 2 - LUDC – segue regra atual de não abater prazo na contagem de parcelas
+      parcelasAbatidas = 0
+    } else {
+      // 1 - Sim (Abater Prazo) ou 3 - Não (Abater Parcelas)
+      // Ambos devem considerar o lance como antecipação de parcelas na métrica de prazo.
+      parcelasAbatidas = totalBidParcels
+    }
   }
 
   const B28_qtd_parcelas_pagas = 1 + parcelasAbatidas + (lanceNaAssembleia - 1)
