@@ -136,9 +136,11 @@ export function calculateSimulation(inputs: SimulationInputs): SimulationOutputs
     if (diluirLance === 2) {
       // 2 - LUDC – segue regra atual de não abater prazo na contagem de parcelas
       parcelasAbatidas = 0
+    } else if (diluirLance === 1) {
+      // 1 - Sim (Abater Prazo) -> Usuário pediu para abater a QTD DE PARCELAS CONFORME O LANCE EMBUTIDO
+      parcelasAbatidas = D20_qtd_parcelas_embutido
     } else {
-      // 1 - Sim (Abater Prazo) ou 3 - Não (Abater Parcelas)
-      // Ambos devem considerar o lance como antecipação de parcelas na métrica de prazo.
+      // 3 - Não (Abater Parcelas) -> Abate pelo total de parcelas do lance (Embutido + Livre)
       parcelasAbatidas = totalBidParcels
     }
   }

@@ -101,8 +101,8 @@ export function SimuladorConsorcio() {
   const [lanceConsorcio, setLanceConsorcio] = useState<string>("")
   const [tipoLance, setTipoLance] = useState<"livre" | "embutido" | "ambos">("livre")
   const [lanceEmbutidoPercent, setLanceEmbutidoPercent] = useState<string>("")
-  const [taxaFinanciamento, setTaxaFinanciamento] = useState<string>("")
-  const [entrada, setEntrada] = useState<string>("")
+  const [taxaFinanciamento, setTaxaFinanciamento] = useState<string>("1.5")
+  const [entrada, setEntrada] = useState<string>("30")
   const [showResults, setShowResults] = useState(false)
   const [planoLight, setPlanoLight] = useState<string>("1")
   const [seguroPrestamista, setSeguroPrestamista] = useState<string>("3")
@@ -509,8 +509,8 @@ export function SimuladorConsorcio() {
     setTaxaAdministracao("")
     setValorBemFin("")
     setPrazoMesesFin("")
-    setTaxaFinanciamento("")
-    setEntrada("")
+    setTaxaFinanciamento("1.5")
+    setEntrada("30")
 
     // Reset advanced configs
     setPlanoLight("1")
@@ -918,6 +918,7 @@ export function SimuladorConsorcio() {
                       <Input
                         id="valorBem"
                         type="text"
+                        inputMode="numeric"
                         value={valorBem}
                         onChange={(e) => {
                           // Máscara de moeda em tempo real (formato BR): mantém só dígitos e formata como R$ xx.xxx,yy
@@ -925,6 +926,7 @@ export function SimuladorConsorcio() {
 
                           if (!digitsOnly) {
                             setValorBem("")
+                            setValorBemFin("")
                             return
                           }
 
@@ -935,6 +937,7 @@ export function SimuladorConsorcio() {
                             maximumFractionDigits: 2,
                           })
                           setValorBem(formatted)
+                          setValorBemFin(formatted)
                         }}
                         placeholder="120.000,00"
                         className={errosObrigatorios.valorBem ? "border-red-500 focus-visible:ring-red-500" : ""}
@@ -950,7 +953,10 @@ export function SimuladorConsorcio() {
                         id="prazoMeses"
                         type="number"
                         value={prazoMeses}
-                        onChange={(e) => setPrazoMeses(e.target.value)}
+                        onChange={(e) => {
+                          setPrazoMeses(e.target.value)
+                          setPrazoMesesFin(e.target.value)
+                        }}
                         placeholder="60"
                         className={errosObrigatorios.prazoMeses ? "border-red-500 focus-visible:ring-red-500" : ""}
                       />
