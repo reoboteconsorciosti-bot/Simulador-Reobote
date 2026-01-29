@@ -178,20 +178,26 @@ export function AppShell({ children }: AppShellProps) {
                     <button
                       type="button"
                       onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-                      className="rounded-full"
+                      className="rounded-full relative"
                       aria-label="Abrir menu do perfil"
                     >
-                      {user.profile.photoUrl ? (
-                        <img
-                          src={user.profile.photoUrl}
-                          alt={user.profile.name}
-                          className="h-7 w-7 flex-shrink-0 rounded-full object-cover border border-slate-200"
-                        />
-                      ) : (
-                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-bold text-slate-600">
-                          {user.profile.name.substring(0, 1).toUpperCase()}
-                        </div>
-                      )}
+                      <img
+                        src={`/api/users/${user.uid}/photo`}
+                        alt={user.profile.name}
+                        className="h-7 w-7 flex-shrink-0 rounded-full object-cover border border-slate-200"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none"
+                          const fallback = document.getElementById(`avatar-fallback-${user.uid}`)
+                          if (fallback) fallback.style.display = "flex"
+                        }}
+                      />
+                      <div
+                        id={`avatar-fallback-${user.uid}`}
+                        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-xs font-bold text-slate-600 absolute top-0 left-0"
+                        style={{ display: "none" }}
+                      >
+                        {user.profile.name.substring(0, 1).toUpperCase()}
+                      </div>
                     </button>
 
                     {isProfileMenuOpen && (

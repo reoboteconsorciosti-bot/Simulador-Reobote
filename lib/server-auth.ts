@@ -34,8 +34,19 @@ export function createSessionToken(user: User, opts?: { maxAgeSeconds?: number }
   }
 
   const maxAgeSeconds = opts?.maxAgeSeconds ?? 60 * 60 * 24 * 7
+
+  // Remove photoUrl from the session token to avoid exceeding the 4kb cookie limit
+  // caused by base64 images.
+  const sessionUser: User = {
+    ...user,
+    profile: {
+      ...user.profile,
+      photoUrl: undefined,
+    }
+  }
+
   const payload: SessionPayload = {
-    user,
+    user: sessionUser,
     exp: Math.floor(Date.now() / 1000) + maxAgeSeconds,
   }
 

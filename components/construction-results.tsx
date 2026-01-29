@@ -20,6 +20,8 @@ interface ConstructionData {
     lanceOfertado: number
     abatimentoLance: string
     mesLance: number
+    valorizacaoReal?: number
+    creditoComValorizacao?: number
 }
 
 interface ConstructionResultsProps {
@@ -94,6 +96,26 @@ export function ConstructionResults({ data, nomeCliente }: ConstructionResultsPr
                                 <span className="text-xs text-muted-foreground">Plano Redução</span>
                                 <p className="font-semibold text-lg capitalize">{data.planoReducao}</p>
                             </div>
+
+                            {/* Valorização - Condicional */}
+                            {(data.valorizacaoReal || 0) > 0 && (
+                                <>
+                                    <div className="space-y-1">
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <TrendingUp className="w-3 h-3 text-emerald-600" /> Valorização Projeta
+                                        </span>
+                                        <p className="font-semibold text-lg text-emerald-600">
+                                            {formatCurrency(data.valorizacaoReal || 0)}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <span className="text-xs text-muted-foreground">Valor estimado do imóvel após a valorização</span>
+                                        <p className="font-semibold text-lg text-emerald-700">
+                                            {formatCurrency(data.creditoComValorizacao || 0)}
+                                        </p>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

@@ -1,438 +1,661 @@
 "use client"
 
 import { useState } from "react"
-import { Calculator, Calendar, Coins, Percent, Hammer, Target, Dices, Sparkles } from "lucide-react"
+import { Calculator, Dices, Hammer, SlidersHorizontal, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
-import { Tabs, TabsList, TabsTrigger } from "./ui/tabs"
-import { formatCurrency, parseCurrencyInput } from "@/lib/formatters"
+import { Switch } from "@/components/ui/switch"
+import { parseCurrencyInput } from "@/lib/formatters"
+import { calcularConstrucao, calcularCreditoAtualizado, calcularValorizacao, type ConstrucaoInputs, type ConstrucaoOutputs } from "./calcConstrucao"
+
+type ModoContemplacao = "sorteio" | "lance_fixo" | "lance_livre"
 
 interface ConsorcioPConstrucaoProps {
-    onSimular: (dados: any) => void
+    onSimular: (dados: ConstrucaoOutputs) => void
+    onGerarPDF?: () => void
 }
 
-export function ConsorcioPConstrucao({ onSimular }: ConsorcioPConstrucaoProps) {
+export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstrucaoProps) {
+    // STATE - Inputs
     const [valorCredito, setValorCredito] = useState("")
     const [prazo, setPrazo] = useState("")
-    const [taxaAdm, setTaxaAdm] = useState("")
-    const [planoReducao, setPlanoReducao] = useState("1")
-    const [seguroPrestamista, setSeguroPrestamista] = useState("3")
-    const [taxaINCC, setTaxaINCC] = useState("")
-    const [tipoINCC, setTipoINCC] = useState<"anual" | "semestral">("anual")
-    const [tipoContemplacao, setTipoContemplacao] = useState<"meses" | "anos">("meses")
-    const [dataContemplacao, setDataContemplacao] = useState("")
-    const [lanceEmbutido, setLanceEmbutido] = useState("")
-    const [lancePago, setLancePago] = useState("")
-    const [lanceOfertado, setLanceOfertado] = useState("")
-    const [abatimentoLance, setAbatimentoLance] = useState("1")
-    const [mesLance, setMesLance] = useState("")
-    const [tipoLanceSelect, setTipoLanceSelect] = useState("livre")
+    const [prazoError, setPrazoError] = useState<string>("")
+    const [taxaAdm, setTaxaAdm] = useState("") // Taxa Fixa ou Mensal? Assumir valor monetário pela fórmula (Taxa + ...)
+    const [taxaINCC, setTaxaINCC] = useState("") // %
+    const [tempoContemplacao, setTempoContemplacao] = useState("")
+    const [tipoReajuste, setTipoReajuste] = useState<"anual" | "semestral">("anual")
 
-    const handleCurrencyChange = (value: string, setter: (val: string) => void) => {
-        const numbers = value.replace(/\D/g, "")
-        if (!numbers || numbers === "0") {
-            setter("")
+    const [planoLight, setPlanoLight] = useState<string>("1")
+    const [seguroPrestamista, setSeguroPrestamista] = useState<string>("3")
+    const [diluirLance, setDiluirLance] = useState<string>("3")
+
+    const [modoContemplacao, setModoContemplacao] = useState<ModoContemplacao>("sorteio")
+    const [lanceEmbutidoPercent, setLanceEmbutidoPercent] = useState("")
+    const [lanceLivrePercent, setLanceLivrePercent] = useState("")
+    const [valorizacaoBem, setValorizacaoBem] = useState("")
+    const [rendaMensalImovel, setRendaMensalImovel] = useState("")
+    const [reinvestimentoMensal, setReinvestimentoMensal] = useState("")
+
+    const creditoNumber = parseCurrencyInput(valorCredito)
+    // const lanceLivreValorNumber = parseCurrencyInput(lanceLivreValor) // Não usado mais diretamente como input
+    const lanceLivrePercentNumber = Number(lanceLivrePercent.toString().replace(",", ".")) || 0
+    const lanceEmbutidoPercentNumber = Number(lanceEmbutidoPercent.toString().replace(",", ".")) || 0
+    const inccNumber = Number(taxaINCC.toString().replace(",", ".")) || 0
+    const contemplacaoNumber = Number(tempoContemplacao) || 0
+
+    const creditoAtualizadoPreview = (() => {
+        try {
+            if (creditoNumber <= 0) return 0
+            return calcularCreditoAtualizado(creditoNumber, inccNumber, contemplacaoNumber, tipoReajuste).valorFinal
+        } catch {
+            return 0
+        }
+    })()
+
+    const baseCreditoLancePreview = creditoAtualizadoPreview > 0 ? creditoAtualizadoPreview : creditoNumber
+
+    // Cálculos Derivados
+    const lanceFixoPercentNumber = 30
+    const valorLanceLivre = baseCreditoLancePreview * (lanceLivrePercentNumber / 100)
+    const valorLanceEmbutido = baseCreditoLancePreview * (lanceEmbutidoPercentNumber / 100)
+    const valorLanceFixo = baseCreditoLancePreview * (lanceFixoPercentNumber / 100)
+
+    // Crédito Líquido = Crédito - Embutido (O Livre é pago por fora, não reduz o crédito)
+    const creditoLiquido = Math.max(0, baseCreditoLancePreview - valorLanceEmbutido)
+
+    const round0 = (v: number) => Math.round(v)
+
+    const getPlanoLightFactor = (planoLightValue: number): number => {
+        switch (planoLightValue) {
+            case 2:
+                return 0.9
+            case 3:
+                return 0.8
+            case 4:
+                return 0.7
+            case 5:
+                return 0.6
+            case 6:
+                return 0.5
+            case 1:
+            default:
+                return 1.0
+        }
+    }
+
+    const L16_CONST = 0.000599
+    const L17_CONST = 0.000392
+
+    const calcParcelaComPlanoESeguro = (credito: number, prazoMeses: number, taxaPercent: number): number => {
+        if (credito <= 0 || prazoMeses <= 0) return 0
+
+        const taxaDecimal = taxaPercent / 100
+        const N13 = 1 + taxaDecimal
+        const baseParcela = (credito / prazoMeses) * N13
+
+        const factor = getPlanoLightFactor(Number(planoLight) || 1)
+
+        const tipoSeguro = Number(seguroPrestamista) || 3
+        const isAutomovel = tipoSeguro === 1
+        const isImovel = tipoSeguro === 2
+
+        const N12 = credito * N13
+        const seguroVida = L16_CONST * N12 * (isAutomovel ? 1 : 0)
+        const seguroGarantia = L17_CONST * N12 * (isImovel ? 1 : 0)
+
+        return baseParcela * factor + seguroVida + seguroGarantia
+    }
+
+    const formatCurrencyBRL = (v: number) =>
+        v.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+        })
+
+    // HANDLERS
+    const handleCurrencyChange = (value: string, setter: (v: string) => void) => {
+        const numericValue = value.replace(/\D/g, "")
+        const floatValue = Number(numericValue) / 100
+        setter(
+            floatValue.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            })
+        )
+    }
+
+    const handleCalcular = () => {
+        const inputCredito = parseCurrencyInput(valorCredito)
+        const inputPrazo = Number(prazo)
+        const inputTaxa = Number(taxaAdm)
+
+        const inputINCC = Number(taxaINCC.replace(",", "."))
+        const inputContemplacao = Number(tempoContemplacao)
+
+        if (inputPrazo < 1) {
+            setPrazoError("Informe o prazo em meses.")
             return
         }
-        const formatted = formatCurrency(Number(numbers) / 100)
-        setter(formatted)
-    }
+        setPrazoError("")
 
-    const getPlanoLightFactor = (v: string): number => {
-        switch (v) {
-            case "2": return 0.9
-            case "3": return 0.8
-            case "4": return 0.7
-            case "5": return 0.6
-            case "6": return 0.5
-            case "1":
-            default: return 1.0
+        const inputs: ConstrucaoInputs = {
+            credito: inputCredito,
+            prazo: inputPrazo,
+            taxa: inputTaxa,
+            incc: inputINCC,
+            contemplacao: inputContemplacao,
+            reajuste: tipoReajuste
         }
-    }
 
-    const calculateInitialInstallment = (credito: number, taxaAdm: number, prazo: number, planoRed: string) => {
-        const custoTotalInicial = credito * (1 + taxaAdm / 100)
-        const planoLightFactor = getPlanoLightFactor(planoRed)
-        return (custoTotalInicial / prazo) * planoLightFactor
-    }
+        try {
+            const outputs = calcularConstrucao(inputs)
 
-    const calculateUpdatedCredit = (credito: number, taxaINCC: number, tipoINCC: string, valorContemplacao: number, tipoContemplativo: string) => {
-        const mesesContemplacao = tipoContemplativo === "anos" ? valorContemplacao * 12 : valorContemplacao
-        const taxaMensal = tipoINCC === "semestral" ? (taxaINCC / 100) / 6 : (taxaINCC / 100) / 12
-        return credito * Math.pow(1 + taxaMensal, mesesContemplacao)
-    }
+            // Para construção, os lances devem ser baseados no CRÉDITO ATUALIZADO NA CONTEMPLAÇÃO
+            const baseCreditoLance = outputs.creditoAtualizado
+            const valorLanceLivreCalc = baseCreditoLance * (lanceLivrePercentNumber / 100)
+            const valorLanceEmbutidoCalc = baseCreditoLance * (lanceEmbutidoPercentNumber / 100)
+            const valorLanceFixoCalc = baseCreditoLance * (lanceFixoPercentNumber / 100)
 
-    const calculateBidValues = (tipo: string, credito: number, embutidoPct: number, pagoPct: number) => {
-        if (tipo === "sorteio") return { total: 0, embutido: 0, pago: 0, totalPct: 0 }
-        if (tipo === "fixo_30") {
-            const totalPct = 30
-            // No simulador padrão, o embutido é 30% do crédito.
-            return {
-                total: credito * 0.3,
-                embutido: credito * 0.3,
-                pago: 0,
-                totalPct: 30
+            // Lógica de Lances Mista
+            const isLanceMode = modoContemplacao === "lance_livre" || modoContemplacao === "lance_fixo"
+            const totalLance = modoContemplacao === "lance_fixo" ? valorLanceFixoCalc : valorLanceLivreCalc + valorLanceEmbutidoCalc
+            const valorLanceEmbutidoEfetivo = modoContemplacao === "lance_fixo" ? 0 : valorLanceEmbutidoCalc
+            const valorLanceLivreEfetivo = modoContemplacao === "lance_fixo" ? valorLanceFixoCalc : valorLanceLivreCalc
+
+            // Converte valor de lance em "qtd de parcelas" para abater prazo (mesma ideia do simulador normal)
+            // Aqui usamos uma parcela referência com Plano Light + Seguro (mesma lógica do simulador normal)
+            const parcelaReferencia = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
+            const totalBidParcels = parcelaReferencia > 0 ? round0(totalLance / parcelaReferencia) : 0
+            const D20_qtd_parcelas_embutido = parcelaReferencia > 0 ? round0(valorLanceEmbutidoEfetivo / parcelaReferencia) : 0
+
+            const diluirLanceNumber = Number(diluirLance) || 3
+
+            let parcelasAbatidas = 0
+            if (totalBidParcels > 0) {
+                if (diluirLanceNumber === 2) {
+                    parcelasAbatidas = 0
+                } else if (diluirLanceNumber === 1) {
+                    parcelasAbatidas = D20_qtd_parcelas_embutido
+                } else {
+                    parcelasAbatidas = totalBidParcels
+                }
             }
+
+            const qtdParcelasPagasComLance = outputs.qtdParcelasPagas + parcelasAbatidas
+            const parcelasAPagarQtdComLance = Math.max(0, inputs.prazo - qtdParcelasPagasComLance)
+            const novaParcelaComPlanoESeguro = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
+            const saldoDevedorComLance = novaParcelaComPlanoESeguro * parcelasAPagarQtdComLance
+
+            const outputsComLance: ConstrucaoOutputs = {
+                ...outputs,
+                parcelaIntegral: calcParcelaComPlanoESeguro(inputs.credito, inputs.prazo, inputs.taxa),
+                novaParcela: novaParcelaComPlanoESeguro,
+                valorLanceTotal: isLanceMode ? totalLance : 0,
+                valorLanceEmbutido: isLanceMode ? valorLanceEmbutidoEfetivo : 0,
+                valorLancePago: isLanceMode ? valorLanceLivreEfetivo : 0,
+                creditoDisponivel: isLanceMode ? baseCreditoLance - valorLanceEmbutidoEfetivo : baseCreditoLance,
+                // Nota: O creditoAtualizado vem da função com INCC. Se houver embutido, deduzimos dele.
+                // A lógica simples aqui deduz do valor base atualizado.
+
+                custoTotal: outputs.custoTotal + (isLanceMode ? valorLanceLivreEfetivo : 0),
+                qtdParcelasPagas: isLanceMode ? qtdParcelasPagasComLance : outputs.qtdParcelasPagas,
+                parcelasAPagarQtd: isLanceMode ? parcelasAPagarQtdComLance : outputs.parcelasAPagarQtd,
+                prazoRestante: isLanceMode ? parcelasAPagarQtdComLance : outputs.prazoRestante,
+                saldoDevedor: isLanceMode ? saldoDevedorComLance : outputs.saldoDevedor,
+
+                // Novos cálculos de valorização
+                valorizacaoReal: calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
+                creditoComValorizacao: outputs.creditoAtualizado + calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
+                rendaMensalImovel: Number(rendaMensalImovel) || 0,
+                reinvestimentoMensal: Number(reinvestimentoMensal) || 0,
+                modoContemplacao
+            }
+
+            onSimular(outputsComLance)
+        } catch (error: any) {
+            alert(error.message)
         }
-        // Livre
-        const totalPct = embutidoPct + pagoPct
-        return {
-            total: credito * (totalPct / 100),
-            embutido: credito * (embutidoPct / 100),
-            pago: credito * (pagoPct / 100),
-            totalPct
-        }
-    }
-
-    const calculateSimulationResults = (dados: any) => {
-        const { valorCredito, taxaAdm, prazo, parcelaIntegral, valorLanceTotal, abatimentoLance } = dados
-
-        const custoTotalOriginal = valorCredito * (1 + taxaAdm / 100)
-        const saldoDevedor = custoTotalOriginal - valorLanceTotal
-
-        let novaParcela = parcelaIntegral
-        let novoPrazo = prazo
-
-        // Lógica de cálculo interno (apenas para exibição local ou pré-cálculo)
-        // O componente pai (SimuladorConsorcio) tem a autoridade final, 
-        // mas enviamos isso calculado caso ele decida usar.
-        const parcelasPagasPeloLance = Math.floor(valorLanceTotal / parcelaIntegral)
-        const qtdParcelasPagas = (dados.mesLance || 0) + parcelasPagasPeloLance
-        const parcelasAPagarQtd = Math.max(0, prazo - qtdParcelasPagas)
-
-        if (abatimentoLance === "1") { // Reduzir Prazo
-            novoPrazo = Math.ceil(saldoDevedor / parcelaIntegral)
-            novaParcela = parcelaIntegral
-        } else if (abatimentoLance === "3") { // Não (Abater Parcelas)
-            novoPrazo = parcelasAPagarQtd
-            novaParcela = parcelaIntegral
-            if (novoPrazo > 0) novaParcela = saldoDevedor / novoPrazo
-        } else if (abatimentoLance === "2") { // LUDC
-            novaParcela = saldoDevedor / prazo
-            novoPrazo = prazo
-        }
-
-        return {
-            ...dados,
-            saldoDevedor,
-            novaParcela,
-            novoPrazo
-        }
-    }
-
-    const handleSubmit = () => {
-        const creditoBase = parseCurrencyInput(valorCredito)
-        const prazoNum = Number(prazo)
-        const taxaAdmNum = Number(taxaAdm)
-        const inccNum = Number(taxaINCC)
-        const contemplacaoValor = Number(dataContemplacao)
-        const lanceEmbPct = Number(lanceEmbutido)
-        const lancePagoPct = Number(lancePago)
-
-        const parcelaIntegral = calculateInitialInstallment(creditoBase, taxaAdmNum, prazoNum, planoReducao)
-        const creditoAtualizado = calculateUpdatedCredit(creditoBase, inccNum, tipoINCC, contemplacaoValor, tipoContemplacao)
-        const lances = calculateBidValues(tipoLanceSelect, creditoBase, lanceEmbPct, lancePagoPct)
-
-        const dadosIniciais = {
-            valorCredito: creditoBase,
-            prazo: prazoNum,
-            taxaAdm: taxaAdmNum,
-            planoReducao,
-            seguroPrestamista: Number(seguroPrestamista),
-            taxaINCC: inccNum,
-            tipoINCC,
-            contemplacao: {
-                tipo: tipoContemplacao,
-                valor: contemplacaoValor
-            },
-            // CORREÇÃO: Passando PORCENTAGENS para o pai, não valores monetários
-            lanceEmbutido: lanceEmbPct,
-            lancePago: lancePagoPct,
-
-            // Passamos a porcentagem total calculada (somatória ou fixa)
-            lanceOfertado: lances.totalPct,
-
-            // Dados calculados para uso opcional
-            valorLanceTotal: lances.total,
-            parcelaIntegral,
-            creditoAtualizado,
-            abatimentoLance,
-            mesLance: Number(mesLance),
-            tipoLance: tipoLanceSelect
-        }
-
-        const resultadosFinais = calculateSimulationResults(dadosIniciais)
-        onSimular(resultadosFinais)
     }
 
     return (
-        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-600">
-                    <Hammer className="w-5 h-5" />
-                    Simulação de Construção
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {/* Crédito e Prazo */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="valorCredito">Valor do Crédito</Label>
-                        <div className="relative">
-                            <Coins className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                id="valorCredito"
-                                value={valorCredito}
-                                onChange={(e) => handleCurrencyChange(e.target.value, setValorCredito)}
-                                className="pl-9"
-                                placeholder="R$ 0,00"
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="prazo">Prazo (meses)</Label>
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                id="prazo"
-                                type="number"
-                                value={prazo}
-                                onChange={(e) => setPrazo(e.target.value)}
-                                className="pl-9"
-                                placeholder="0"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Taxas e Seguro */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="taxaAdm">Taxa Adm. (%)</Label>
-                        <div className="relative">
-                            <Percent className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                id="taxaAdm"
-                                type="number"
-                                value={taxaAdm}
-                                onChange={(e) => setTaxaAdm(e.target.value)}
-                                className="pl-9"
-                                placeholder="0.00"
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="planoLight">Plano de Redução</Label>
-                        <select
-                            id="planoLight"
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            value={planoReducao}
-                            onChange={(e) => setPlanoReducao(e.target.value)}
-                        >
-                            <option value="1">Integral (Sem redução)</option>
-                            <option value="2">Plano Flex 10%</option>
-                            <option value="3">Plano Flex 20%</option>
-                            <option value="4">Plano Flex 30%</option>
-                            <option value="5">Plano Flex 40%</option>
-                            <option value="6">Plano Flex 50%</option>
-                        </select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="seguroPrestamista">Seguro Prestamista</Label>
-                        <select
-                            id="seguroPrestamista"
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            value={seguroPrestamista}
-                            onChange={(e) => setSeguroPrestamista(e.target.value)}
-                        >
-                            <option value="1">Automóvel</option>
-                            <option value="2">Imóvel</option>
-                            <option value="3">Sem seguro</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* INCC e Contemplação */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="incc" className="text-sm font-medium">INCC (%)</Label>
-                        <Tabs
-                            value={tipoINCC}
-                            onValueChange={(v: any) => setTipoINCC(v)}
-                            className="w-full"
-                        >
-                            <TabsList className="grid w-full grid-cols-2 h-8 p-1 bg-muted/50">
-                                <TabsTrigger
-                                    value="anual"
-                                    className="text-[10px] data-[state=active]:bg-white"
-                                >
-                                    Ano
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="semestral"
-                                    className="text-[10px] data-[state=active]:bg-white"
-                                >
-                                    Semestre
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
-                        <Input
-                            id="incc"
-                            type="number"
-                            value={taxaINCC}
-                            onChange={(e) => setTaxaINCC(e.target.value)}
-                            placeholder="0.00"
-                            className="h-9"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">Contemplação</Label>
-                        <Tabs
-                            value={tipoContemplacao}
-                            onValueChange={(v: any) => setTipoContemplacao(v)}
-                            className="w-full"
-                        >
-                            <TabsList className="grid w-full grid-cols-2 h-8 p-1 bg-muted/50">
-                                <TabsTrigger
-                                    value="meses"
-                                    className="text-[10px] data-[state=active]:bg-white"
-                                >
-                                    Mês
-                                </TabsTrigger>
-                                <TabsTrigger
-                                    value="anos"
-                                    className="text-[10px] data-[state=active]:bg-white"
-                                >
-                                    Ano
-                                </TabsTrigger>
-                            </TabsList>
-                        </Tabs>
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                type="number"
-                                value={dataContemplacao}
-                                onChange={(e) => setDataContemplacao(e.target.value)}
-                                placeholder="Tempo"
-                                className="pl-9 h-9"
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                <div className="border-t pt-4 space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="tipoLance" className="text-sm font-medium text-muted-foreground">Tipo de Lance</Label>
-                        <select
-                            id="tipoLance"
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            value={tipoLanceSelect}
-                            onChange={(e) => setTipoLanceSelect(e.target.value)}
-                        >
-                            <option value="livre">Lance Livre</option>
-                            <option value="fixo_30">Lance Fixo 30%</option>
-                            <option value="sorteio">Por Sorteio</option>
-                        </select>
-                    </div>
-
-                    {tipoLanceSelect === "livre" ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
+            <div className="flex flex-col gap-8 w-full max-w-xl shrink-0">
+                <Card className="w-full">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Hammer className="w-5 h-5" />
+                            Parâmetros da Construção (Etapa 1)
+                        </CardTitle>
+                        <CardDescription>Defina os valores base para a simulação de construção.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Crédito */}
                             <div className="space-y-2">
-                                <Label htmlFor="lanceEmbutido">Lance Embutido (%)</Label>
+                                <Label htmlFor="credito" className="h-12 flex items-end pb-1 leading-tight">Crédito do Consórcio (R$)</Label>
                                 <Input
-                                    id="lanceEmbutido"
-                                    type="number"
-                                    value={lanceEmbutido}
-                                    onChange={(e) => setLanceEmbutido(e.target.value)}
-                                    placeholder="0.00"
+                                    id="credito"
+                                    value={valorCredito}
+                                    onChange={(e) => handleCurrencyChange(e.target.value, setValorCredito)}
+                                    placeholder="0,00"
+                                    inputMode="numeric"
                                 />
                             </div>
+
+                            {/* Prazo */}
                             <div className="space-y-2">
-                                <Label htmlFor="lancePago">Lance Pago (%)</Label>
+                                <Label htmlFor="prazo" className="h-12 flex items-end pb-1 leading-tight">Prazo (meses)</Label>
                                 <Input
-                                    id="lancePago"
+                                    id="prazo"
                                     type="number"
-                                    value={lancePago}
-                                    onChange={(e) => setLancePago(e.target.value)}
-                                    placeholder="0.00"
+                                    value={prazo}
+                                    onChange={(e) => {
+                                        setPrazo(e.target.value)
+                                        if (prazoError) setPrazoError("")
+                                    }}
+                                    placeholder="Ex: 180"
+                                    aria-invalid={prazoError ? true : undefined}
+                                    className={prazoError ? "border-red-500 focus-visible:ring-red-500" : undefined}
+                                />
+                                {prazoError && <p className="text-xs text-red-600">{prazoError}</p>}
+                            </div>
+
+                            {/* Taxa */}
+                            <div className="space-y-2">
+                                <Label htmlFor="taxa">Taxa (Valor Fixo/Mensal?)</Label>
+                                <Input
+                                    id="taxa"
+                                    type="number"
+                                    value={taxaAdm}
+                                    onChange={(e) => setTaxaAdm(e.target.value)}
+                                    placeholder="0"
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">Adicionado à nova parcela (R$)</p>
+                            </div>
+
+                            {/* INCC */}
+                            <div className="space-y-2">
+                                <Label htmlFor="incc">Índice Reajuste (INCC %)</Label>
+                                <Input
+                                    id="incc"
+                                    type="number"
+                                    value={taxaINCC}
+                                    onChange={(e) => setTaxaINCC(e.target.value)}
+                                    placeholder="2.5"
+                                    step="0.1"
                                 />
                             </div>
+
+                            {/* Contemplação */}
                             <div className="space-y-2">
-                                <Label htmlFor="lanceOfertado">Lance Ofertado (%)</Label>
+                                <Label htmlFor="contemplacao">Contemplação (mês)</Label>
                                 <Input
-                                    id="lanceOfertado"
+                                    id="contemplacao"
                                     type="number"
-                                    value={lanceOfertado}
-                                    onChange={(e) => setLanceOfertado(e.target.value)}
-                                    placeholder="Total"
-                                    readOnly
-                                    className="bg-muted"
+                                    value={tempoContemplacao}
+                                    onChange={(e) => setTempoContemplacao(e.target.value)}
+                                    placeholder="Ex: 36"
                                 />
-                                <p className="text-xs text-muted-foreground">
-                                    {Number(lanceEmbutido || 0) + Number(lancePago || 0)}% Total
-                                </p>
                             </div>
-                        </div>
-                    ) : tipoLanceSelect === "fixo_30" ? (
-                        <div className="bg-sky-50 border border-sky-200 rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-2 animate-in zoom-in-95 duration-300">
-                            <div className="bg-sky-500 p-2 rounded-full">
-                                <Target className="w-6 h-6 text-white" />
-                            </div>
-                            <h5 className="font-bold text-sky-900">Lance Fixo de 30%</h5>
-                            <p className="text-xs text-sky-700 max-w-[280px]">
-                                O lance será ofertado utilizando 30% do valor do crédito automaticamente.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-2 animate-in zoom-in-95 duration-300">
-                            <div className="bg-amber-500 p-2 rounded-full animate-pulse">
-                                <Sparkles className="w-6 h-6 text-white" />
-                            </div>
-                            <h5 className="font-bold text-amber-900">Participação por Sorteio</h5>
-                            <p className="text-xs text-amber-700 max-w-[280px]">
-                                Nesta modalidade você concorrerá mensalmente através das extrações da Loteria Federal.
-                            </p>
-                        </div>
-                    )}
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="diluirLance">Forma de Abatimento do Lance</Label>
-                        <select
-                            id="diluirLance"
-                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            value={abatimentoLance}
-                            onChange={(e) => setAbatimentoLance(e.target.value)}
-                        >
-                            <option value="1">Sim (Abater Prazo)</option>
-                            <option value="2">LUDC</option>
-                            <option value="3">Não (Abater Parcelas)</option>
-                        </select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="mesLance">Mês do Lance (Assembleia)</Label>
-                        <Input
-                            id="mesLance"
-                            type="number"
-                            value={mesLance}
-                            onChange={(e) => setMesLance(e.target.value)}
-                            placeholder="Ex: 1"
-                        />
-                    </div>
-                </div>
+                            {/* Toggle Reajuste */}
+                            <div className="space-y-2 flex flex-col justify-end pb-2">
+                                <Label className="mb-3 block">Tipo de Reajuste</Label>
+                                <div className="flex items-center space-x-2">
+                                    <Label htmlFor="reajuste-mode" className={tipoReajuste === "semestral" ? "font-bold" : "text-muted-foreground"}>Semestral</Label>
+                                    <Switch
+                                        id="reajuste-mode"
+                                        checked={tipoReajuste === "anual"}
+                                        onCheckedChange={(checked: boolean) =>
+                                            setTipoReajuste(checked ? "anual" : "semestral")
+                                        }
+                                    />
+                                    <Label htmlFor="reajuste-mode" className={tipoReajuste === "anual" ? "font-bold" : "text-muted-foreground"}>Anual</Label>
+                                </div>
+                            </div>
+                        </div>
 
-                <Button
-                    className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white mt-6"
-                    onClick={handleSubmit}
-                >
-                    SIMULAR CONSTRUÇÃO
+                        <div className="space-y-4 w-full">
+                            <div>
+                                <Label className="block">Modalidade de contemplação</Label>
+                                <p className="text-xs text-muted-foreground">Escolha como a contemplação será simulada.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setModoContemplacao("sorteio")}
+                                    className={
+                                        "rounded-xl border px-4 py-6 text-center transition-all w-full flex flex-col items-center justify-center gap-3 group " +
+                                        (modoContemplacao === "sorteio"
+                                            ? "border-amber-400 bg-amber-50 shadow-sm ring-1 ring-amber-400/50"
+                                            : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300")
+                                    }
+                                >
+                                    <div
+                                        className={
+                                            "h-12 w-12 rounded-xl flex items-center justify-center transition-colors " +
+                                            (modoContemplacao === "sorteio" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600 group-hover:bg-slate-200")
+                                        }
+                                    >
+                                        <Dices className="h-6 w-6" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="font-semibold text-sm sm:text-base">Sorteio</div>
+                                        <div className="text-xs text-muted-foreground leading-tight">Sem lance</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setModoContemplacao("lance_fixo")}
+                                    className={
+                                        "rounded-xl border px-4 py-6 text-center transition-all w-full flex flex-col items-center justify-center gap-3 group " +
+                                        (modoContemplacao === "lance_fixo"
+                                            ? "border-sky-400 bg-sky-50 shadow-sm ring-1 ring-sky-400/50"
+                                            : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300")
+                                    }
+                                >
+                                    <div
+                                        className={
+                                            "h-12 w-12 rounded-xl flex items-center justify-center transition-colors " +
+                                            (modoContemplacao === "lance_fixo" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-600 group-hover:bg-slate-200")
+                                        }
+                                    >
+                                        <Target className="h-6 w-6" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="font-semibold text-sm sm:text-base">Lance Fixo</div>
+                                        <div className="text-xs text-muted-foreground leading-tight">Percentual Definido</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setModoContemplacao("lance_livre")}
+                                    className={
+                                        "rounded-xl border px-4 py-6 text-center transition-all w-full flex flex-col items-center justify-center gap-3 group " +
+                                        (modoContemplacao === "lance_livre"
+                                            ? "border-emerald-400 bg-emerald-50 shadow-sm ring-1 ring-emerald-400/50"
+                                            : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300")
+                                    }
+                                >
+                                    <div
+                                        className={
+                                            "h-12 w-12 rounded-xl flex items-center justify-center transition-colors " +
+                                            (modoContemplacao === "lance_livre"
+                                                ? "bg-emerald-100 text-emerald-700"
+                                                : "bg-slate-100 text-slate-600 group-hover:bg-slate-200")
+                                        }
+                                    >
+                                        <SlidersHorizontal className="h-6 w-6" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="font-semibold text-sm sm:text-base">Lance Livre</div>
+                                        <div className="text-xs text-muted-foreground leading-tight">Campos Editáveis</div>
+                                    </div>
+                                </button>
+                            </div>
+
+                            {modoContemplacao === "lance_fixo" && (
+                                <div className="md:col-span-2">
+                                    <div
+                                        data-slot="card"
+                                        className="text-card-foreground flex flex-col gap-6 rounded-xl border py-6 border-sky-500/70 bg-sky-50 mt-2 shadow-sm"
+                                    >
+                                        <div className="px-6 min-w-0">
+                                            <div className="font-semibold">Lance Fixo</div>
+                                            <div className="text-xs text-muted-foreground">{lanceFixoPercentNumber}% do crédito</div>
+                                        </div>
+
+                                        <div className="px-6 space-y-2">
+                                            <div className="text-sm text-muted-foreground">
+                                                Lance total (R$): <span className="font-semibold text-foreground">{formatCurrencyBRL(valorLanceFixo)}</span>
+                                            </div>
+                                            <div className="text-sm text-muted-foreground">
+                                                Qtd. de parcelas (estimado):{" "}
+                                                <span className="font-semibold text-foreground">
+                                                    {(() => {
+                                                        const p = Number(prazo)
+                                                        const c = parseCurrencyInput(valorCredito)
+                                                        const t = Number(taxaAdm)
+                                                        if (p < 1 || c <= 0) return 0
+                                                        const parcelaRef = (c / p) * (1 + t / 100)
+                                                        if (parcelaRef <= 0) return 0
+                                                        return Math.round(valorLanceFixo / parcelaRef)
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {modoContemplacao === "lance_livre" && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lanceLivrePercent" className="h-12 flex items-end pb-1 leading-tight">Percentual do lance (%)</Label>
+                                        <Input
+                                            id="lanceLivrePercent"
+                                            type="number"
+                                            step="0.1"
+                                            value={lanceLivrePercent}
+                                            onChange={(e) => setLanceLivrePercent(e.target.value)}
+                                            placeholder="Ex: 20"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="lanceEmbutidoPercent" className="h-12 flex items-end pb-1 leading-tight">Percentual do lance embutido (%)</Label>
+                                        <Input
+                                            id="lanceEmbutidoPercent"
+                                            type="number"
+                                            step="0.1"
+                                            value={lanceEmbutidoPercent}
+                                            onChange={(e) => setLanceEmbutidoPercent(e.target.value)}
+                                            placeholder="Ex: 10"
+                                            className={
+                                                (Number(lanceLivrePercent) || 0) + (Number(lanceEmbutidoPercent) || 0) > 100
+                                                    ? "border-red-500 focus-visible:ring-red-500"
+                                                    : ""
+                                            }
+                                        />
+                                    </div>
+
+                                    {(Number(lanceLivrePercent) || 0) + (Number(lanceEmbutidoPercent) || 0) > 100 && (
+                                        <div className="md:col-span-2 text-sm text-red-500 font-medium">
+                                            O valor total do lance não pode ultrapassar o valor do Crédito (100%).
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="planoLight">Plano Redução</Label>
+                                        <select
+                                            id="planoLight"
+                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={planoLight}
+                                            onChange={(e) => setPlanoLight(e.target.value)}
+                                        >
+                                            <option value="1">Integral (Sem redução)</option>
+                                            <option value="2">Plano Flex 10%</option>
+                                            <option value="3">Plano Flex 20%</option>
+                                            <option value="4">Plano Flex 30%</option>
+                                            <option value="5">Plano Flex 40%</option>
+                                            <option value="6">Plano Flex 50%</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="seguroPrestamista">Seguro Prestamista</Label>
+                                        <select
+                                            id="seguroPrestamista"
+                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={seguroPrestamista}
+                                            onChange={(e) => setSeguroPrestamista(e.target.value)}
+                                        >
+                                            <option value="2">Imóvel</option>
+                                            <option value="3">Nenhum</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="space-y-2 md:col-span-2">
+                                        <Label htmlFor="diluirLance">Forma de Abatimento do Lance</Label>
+                                        <select
+                                            id="diluirLance"
+                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                            value={diluirLance}
+                                            onChange={(e) => setDiluirLance(e.target.value)}
+                                        >
+                                            <option value="1">Sim (Abater Prazo)</option>
+                                            <option value="2">LUDC</option>
+                                            <option value="3">Não (Abater Parcelas)</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <div
+                                            data-slot="card"
+                                            className="text-card-foreground flex flex-col gap-6 rounded-xl border py-6 border-sky-500/70 bg-sky-50 mt-2 shadow-sm"
+                                        >
+                                            <div className="px-6 min-w-0">
+                                                <div className="font-semibold">Lance Livre</div>
+                                                <div className="text-xs text-muted-foreground">Campos editáveis</div>
+                                            </div>
+
+                                            <div className="px-6 space-y-2">
+                                                <div className="text-sm text-muted-foreground">
+                                                    Lance livre (R$): <span className="font-semibold text-foreground">{formatCurrencyBRL(valorLanceLivre)}</span>
+                                                </div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    Lance embutido (R$): <span className="font-semibold text-foreground">{formatCurrencyBRL(valorLanceEmbutido)}</span>
+                                                </div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    Total de lances (R$):{" "}
+                                                    <span className="font-semibold text-foreground">{formatCurrencyBRL(valorLanceLivre + valorLanceEmbutido)}</span>
+                                                </div>
+                                                <div className="text-sm text-muted-foreground">
+                                                    Qtd. de parcelas (estimado):{" "}
+                                                    <span className="font-semibold text-foreground">
+                                                        {(() => {
+                                                            const parcelaRef = (() => {
+                                                                const p = Number(prazo)
+                                                                const c = parseCurrencyInput(valorCredito)
+                                                                const t = Number(taxaAdm)
+                                                                if (p > 0 && c > 0) return (c / p) * (1 + t / 100)
+                                                                return 0
+                                                            })()
+                                                            if (parcelaRef <= 0) return 0
+                                                            return Math.round((valorLanceLivre + valorLanceEmbutido) / parcelaRef)
+                                                        })()}
+                                                    </span>
+                                                </div>
+                                                <div className="pt-2 border-t border-sky-500/20 space-y-1">
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Qtd parcelas pagas (com lance):{" "}
+                                                        <span className="font-semibold text-foreground">
+                                                            {(() => {
+                                                                const p = Number(prazo)
+                                                                const c = parseCurrencyInput(valorCredito)
+                                                                const t = Number(taxaAdm)
+                                                                const cont = Number(tempoContemplacao)
+                                                                if (p < 1 || c <= 0) return cont || 0
+                                                                const parcelaRef = (c / p) * (1 + t / 100)
+                                                                const abat = parcelaRef > 0 ? Math.round((valorLanceLivre + valorLanceEmbutido) / parcelaRef) : 0
+                                                                return (cont || 0) + abat
+                                                            })()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-sm text-muted-foreground">
+                                                        Parcelas a pagar (com lance):{" "}
+                                                        <span className="font-semibold text-foreground">
+                                                            {(() => {
+                                                                const p = Number(prazo)
+                                                                const c = parseCurrencyInput(valorCredito)
+                                                                const t = Number(taxaAdm)
+                                                                const cont = Number(tempoContemplacao)
+                                                                if (p < 1 || c <= 0) return Math.max(0, p - (cont || 0))
+                                                                const parcelaRef = (c / p) * (1 + t / 100)
+                                                                const abat = parcelaRef > 0 ? Math.round((valorLanceLivre + valorLanceEmbutido) / parcelaRef) : 0
+                                                                return Math.max(0, p - ((cont || 0) + abat))
+                                                            })()}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="w-full">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Hammer className="w-5 h-5" />
+                            Parâmetros da Construção (Etapa 2)
+                        </CardTitle>
+                        <CardDescription>Defina valores adicionais do imóvel.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-2">
+                            <Label htmlFor="valorizacaoBem">Valorização sobre o Imóvel (%)</Label>
+                            <Input
+                                id="valorizacaoBem"
+                                type="number"
+                                step="0.1"
+                                value={valorizacaoBem}
+                                onChange={(e) => setValorizacaoBem(e.target.value)}
+                                placeholder="Ex: 20"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="rendaMensalImovel">Renda mensal do imóvel (%)</Label>
+                            <Input
+                                id="rendaMensalImovel"
+                                type="number"
+                                step="0.1"
+                                value={rendaMensalImovel}
+                                onChange={(e) => setRendaMensalImovel(e.target.value)}
+                                placeholder="Ex: 0.5"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="reinvestimentoMensal">Reinvestimento Mensal (%)</Label>
+                            <Input
+                                id="reinvestimentoMensal"
+                                type="number"
+                                step="0.1"
+                                value={reinvestimentoMensal}
+                                onChange={(e) => setReinvestimentoMensal(e.target.value)}
+                                placeholder="Ex: 0.5"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Button onClick={handleCalcular} className="w-full" size="lg">
+                    <Calculator className="w-4 h-4 mr-2" />
+                    Calcular Construção
                 </Button>
-            </CardContent>
-        </Card>
+
+                {onGerarPDF && (
+                    <Button
+                        type="button"
+                        className="w-full bg-red-600 hover:bg-red-700 text-white"
+                        size="lg"
+                        onClick={onGerarPDF}
+                    >
+                        Gerar PDF
+                    </Button>
+                )}
+
+            </div>
+        </div>
     )
 }

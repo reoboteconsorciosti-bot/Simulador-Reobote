@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, Upload, X } from "lucide-react"
 
 import { UserRole } from "@/lib/auth-types"
 import { useAuth } from "@/components/auth-context"
@@ -99,6 +99,23 @@ export function AdminView() {
     if (!editUserId) return null
     return users.find((u) => u.id === editUserId) ?? null
   }, [editUserId, users])
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("A imagem deve ter no máximo 5MB.")
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const result = event.target?.result as string
+      setter(result)
+    }
+    reader.readAsDataURL(file)
+  }
 
   const handleCreate = async () => {
     setError(null)
@@ -426,13 +443,40 @@ export function AdminView() {
             </p>
           </div>
           <div>
-            <label className="text-xs font-medium text-slate-600">Foto URL (opcional)</label>
-            <input
-              value={photoUrl}
-              onChange={(e) => setPhotoUrl(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-              placeholder="https://exemplo.com/foto.jpg"
-            />
+            <label className="text-xs font-medium text-slate-600">Foto</label>
+            <div className="mt-1 flex items-center gap-4">
+              {photoUrl ? (
+                <div className="relative h-16 w-16 shrink-0">
+                  <img
+                    src={photoUrl}
+                    alt="Preview"
+                    className="h-full w-full rounded-full object-cover border border-slate-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPhotoUrl("")}
+                    className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <div className="h-16 w-16 shrink-0 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+                  <Upload className="h-6 w-6 text-slate-400" />
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, setPhotoUrl)}
+                  className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  PNG, JPG ou GIF até 5MB.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -692,13 +736,40 @@ export function AdminView() {
               </div>
 
               <div>
-                <label className="text-xs font-medium text-slate-600">Foto URL (opcional)</label>
-                <input
-                  value={editPhotoUrl}
-                  onChange={(e) => setEditPhotoUrl(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
-                  placeholder="https://exemplo.com/foto.jpg"
-                />
+                <label className="text-xs font-medium text-slate-600">Foto</label>
+                <div className="mt-1 flex items-center gap-4">
+                  {editPhotoUrl ? (
+                    <div className="relative h-16 w-16 shrink-0">
+                      <img
+                        src={editPhotoUrl}
+                        alt="Preview"
+                        className="h-full w-full rounded-full object-cover border border-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditPhotoUrl("")}
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 shrink-0 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center">
+                      <Upload className="h-6 w-6 text-slate-400" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, setEditPhotoUrl)}
+                      className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      PNG, JPG ou GIF até 5MB.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {editRole === UserRole.Consultor && (

@@ -123,6 +123,7 @@ export function SimuladorConsorcio() {
     taxaAdministracao: false,
   })
   const [lanceError, setLanceError] = useState<string | null>(null)
+  const [resetKey, setResetKey] = useState(0)
 
   const baseValorBem = tipoSimulacao === "financiamento" ? valorBemFin : valorBem
   const basePrazoMeses = tipoSimulacao === "financiamento" ? prazoMesesFin : prazoMeses
@@ -532,6 +533,49 @@ export function SimuladorConsorcio() {
 
     // Reset defaults logic
     setTipoSimulacao("consorcio")
+    setResetKey(prev => prev + 1)
+  }
+
+  const handleGeneratePdf = async () => {
+    if (!simulacaoOficial) {
+      setShowPdfErrorModal(true)
+      return
+    }
+
+    setGeneratingPdf(true)
+    try {
+      const payload = formatProposalPayload(
+        {
+          nomeCliente,
+          nomeConsultor,
+          valorBem: baseValorBem,
+          prazoMeses: basePrazoMeses,
+          taxaAdministracao,
+          percentualOfertado,
+          percentualEmbutido,
+          tipoBem,
+        },
+        simulacaoOficial
+      )
+
+      const res = await fetch("/api/webhook/proposal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        setShowPdfSuccessModal(true)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
+      }
+    } catch (error) {
+      console.error(error)
+      alert("Erro de conexão ao tentar gerar o PDF.")
+    } finally {
+      setGeneratingPdf(false)
+    }
   }
 
   const calcularConsorcio = () => {
@@ -768,33 +812,28 @@ export function SimuladorConsorcio() {
         </p>
       </div>
 
-      <motion.div
-        transition={{ duration: 0.45, ease: "easeInOut", type: "tween" }}
+      <div
         className={
           showResults
             ? "grid lg:grid-cols-3 gap-6"
             : "flex min-h-[60vh] items-center justify-center"
         }
       >
-        <motion.div
-          layout="position"
-          layoutId="config-panel"
-          transition={{ duration: 0.45, ease: "easeInOut", type: "tween" }}
+        <div
           className={
             showResults
               ? "lg:col-span-1 lg:sticky lg:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto space-y-4"
-              : "w-full max-w-xl space-y-4"
+              : `w-full ${modoConstrucao ? "max-w-7xl" : "max-w-xl"} space-y-4`
           }
         >
-          <div className="flex justify-between items-center mb-2 gap-2">
+          <div className="flex justify-between items-center mb-2 gap-2 w-full max-w-xl mx-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setModoConstrucao(!modoConstrucao)}
               className={`flex-1 border-dashed ${modoConstrucao ? "bg-blue-50 text-blue-600 border-blue-200" : "text-muted-foreground"}`}
             >
-              <Hammer className="w-4 h-4 mr-2" />
-              {modoConstrucao ? "Voltar ao Padrão" : "Consórcio para Construção"}
+              {modoConstrucao ? "Voltar ao Padrão" : "Construção"}
             </Button>
             <Button
               variant="outline"
@@ -806,7 +845,7 @@ export function SimuladorConsorcio() {
               Limpar Dados
             </Button>
           </div>
-          <Card>
+          <Card className="w-full max-w-xl mx-auto">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5" />
@@ -837,61 +876,41 @@ export function SimuladorConsorcio() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label>Tipo de bem</Label>
-                <RadioGroup
-                  value={tipoBem}
-                  onValueChange={(v) => setTipoBem(v as "imovel" | "automovel")}
-                  className="flex flex-col gap-2 sm:flex-row sm:gap-4"
-                >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem id="tipo-imovel" value="imovel" />
-                    <Label htmlFor="tipo-imovel" className="text-sm">
-                      Imóvel
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem id="tipo-automovel" value="automovel" />
-                    <Label htmlFor="tipo-automovel" className="text-sm">
-                      Automóvel
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
+              {!modoConstrucao && (
+                <div className="space-y-2">
+                  <Label>Tipo de bem</Label>
+                  <RadioGroup
+                    value={tipoBem}
+                    onValueChange={(v) => setTipoBem(v as "imovel" | "automovel")}
+                    className="flex flex-col gap-2 sm:flex-row sm:gap-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem id="tipo-imovel" value="imovel" />
+                      <Label htmlFor="tipo-imovel" className="text-sm">
+                        Imóvel
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem id="tipo-automovel" value="automovel" />
+                      <Label htmlFor="tipo-automovel" className="text-sm">
+                        Automóvel
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {modoConstrucao ? (
-            <Card className="min-h-[400px] flex flex-col items-center justify-center p-8 border-dashed border-2 border-amber-200 bg-amber-50/50">
-              <div className="flex flex-col items-center justify-center gap-2 mb-6 component-preview">
-                <div className="w-20 h-20 bg-amber-100 rounded-xl flex items-center justify-center border-4 border-amber-200 shadow-inner relative overflow-visible">
-                  {/* Hammer Motion - Fixed pivot at handle base */}
-                  <motion.div
-                    animate={{ rotate: [0, -10, 60, 0] }}
-                    transition={{
-                      duration: 0.8,
-                      repeat: Infinity,
-                      repeatType: "loop",
-                      ease: "anticipate",
-                      times: [0, 0.2, 0.4, 1],
-                      repeatDelay: 0.2
-                    }}
-                    style={{ originX: 0.1, originY: 0.9 }}
-                    className="origin-bottom-left"
-                  >
-                    <Hammer className="w-10 h-10 text-amber-800 fill-amber-700/20" />
-                  </motion.div>
-
-
-                </div>
-              </div>
-              <h3 className="text-2xl font-bold text-amber-900 mb-2">Atualização em Andamento</h3>
-              <p className="text-amber-800/80 text-center max-w-sm">
-                Estamos preparando uma nova experiência para o Consórcio de Construção.
-                <br />
-                Em breve você terá acesso a funcionalidades exclusivas!
-              </p>
-            </Card>
+            <ConsorcioPConstrucao
+              key={resetKey}
+              onSimular={(dados) => {
+                setResultadosConstrucao(dados)
+                setShowResults(true)
+              }}
+              onGerarPDF={handleGeneratePdf}
+            />
           ) : (
             <Card className={showResults ? "" : "aspect-square"}>
               <CardHeader>
@@ -1222,47 +1241,7 @@ export function SimuladorConsorcio() {
                       type="button"
                       className="w-full bg-red-600 hover:bg-red-700 text-white"
                       size="lg"
-                      onClick={async () => {
-                        if (!simulacaoOficial) {
-                          setShowPdfErrorModal(true)
-                          return
-                        }
-
-                        setGeneratingPdf(true)
-                        try {
-                          const payload = formatProposalPayload(
-                            {
-                              nomeCliente,
-                              nomeConsultor,
-                              valorBem: baseValorBem,
-                              prazoMeses: basePrazoMeses,
-                              taxaAdministracao,
-                              percentualOfertado,
-                              percentualEmbutido,
-                              tipoBem,
-                            },
-                            simulacaoOficial
-                          )
-
-                          const res = await fetch("/api/webhook/proposal", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(payload)
-                          })
-
-                          if (res.ok) {
-                            setShowPdfSuccessModal(true)
-                          } else {
-                            const err = await res.json().catch(() => ({}))
-                            alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
-                          }
-                        } catch (error) {
-                          console.error(error)
-                          alert("Erro de conexão ao tentar gerar o PDF.")
-                        } finally {
-                          setGeneratingPdf(false)
-                        }
-                      }}
+                      onClick={handleGeneratePdf}
                       disabled={generatingPdf}
                     >
                       {generatingPdf ? "Enviando..." : "Gerar PDF"}
@@ -1272,7 +1251,7 @@ export function SimuladorConsorcio() {
               </CardContent>
             </Card>
           )}
-        </motion.div>
+        </div>
 
         <AnimatePresence mode="popLayout">
           {showResults && (
@@ -1378,34 +1357,41 @@ export function SimuladorConsorcio() {
                             Status Contemplação
                           </p>
                           <p className="text-emerald-900/90 text-sm md:text-base font-semibold">
-                            Prevista em {resultadosConstrucao.inputs.contemplacao.valor} {resultadosConstrucao.inputs.contemplacao.tipo}
+                            Prevista em {resultadosConstrucao.contemplacaoMes} meses ({
+                              resultadosConstrucao.tipoReajuste === "anual" ? "reajuste anual" : "reajuste semestral"
+                            })
                           </p>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
-                      <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-sky-900">Lance Ofertado Total</p>
-                          <p className="text-base md:text-xl font-extrabold text-sky-900">
-                            {formatCurrency(resultadosConstrucao.valorLanceTotal)}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-semibold text-sky-900">Lance Embutido</p>
-                          <p className="text-base md:text-xl font-extrabold text-sky-900">
-                            {formatCurrency(resultadosConstrucao.valorLanceEmbutido)}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-semibold text-sky-900">Lance Pago em Dinheiro</p>
-                          <p className="text-base md:text-xl font-extrabold text-sky-900">
-                            {formatCurrency(resultadosConstrucao.valorLancePago)}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
+
+
+                    {resultadosConstrucao.modoContemplacao !== "sorteio" && (
+                      <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
+                        <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sky-900">Lance Ofertado Total</p>
+                            <p className="text-base md:text-xl font-extrabold text-sky-900">
+                              {formatCurrency(resultadosConstrucao.valorLanceTotal)}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sky-900">Lance Embutido</p>
+                            <p className="text-base md:text-xl font-extrabold text-sky-900">
+                              {formatCurrency(resultadosConstrucao.valorLanceEmbutido)}
+                            </p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sky-900">Lance Pago em Dinheiro</p>
+                            <p className="text-base md:text-xl font-extrabold text-sky-900">
+                              {formatCurrency(resultadosConstrucao.valorLancePago)}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
 
                     <Card className="bg-muted">
                       <CardHeader className="pb-3">
@@ -1437,6 +1423,81 @@ export function SimuladorConsorcio() {
                         </div>
                       </CardContent>
                     </Card>
+
+                    <div className="md:col-span-2 pt-8 border-t border-emerald-100 mt-6">
+                      <div className="mb-6 flex items-center gap-3">
+                        <div className="h-10 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 rounded-full shadow-sm" />
+                        <div>
+                          <h3 className="text-xl font-bold text-emerald-950">Análise de Investimento</h3>
+                          <p className="text-xs text-emerald-600/80 uppercase tracking-widest font-semibold">Resultados da Etapa 2</p>
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-4">
+                        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                          <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+                            <TrendingUp className="w-20 h-20 text-emerald-900" />
+                          </div>
+                          <CardContent className="py-5 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                            <div className="space-y-1.5">
+                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                Crédito com Valorização
+                              </p>
+                              <p className="text-lg md:text-2xl font-bold text-emerald-950">
+                                {formatCurrency(resultadosConstrucao.creditoComValorizacao ?? resultadosConstrucao.creditoAtualizado)}
+                              </p>
+                              {typeof resultadosConstrucao.valorizacaoReal === "number" && (
+                                <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">
+                                  + {formatCurrency(resultadosConstrucao.valorizacaoReal)} de valorização
+                                </p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                          <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+                            <TrendingUp className="w-20 h-20 text-emerald-900" />
+                          </div>
+                          <CardContent className="py-5 grid grid-cols-1 gap-6 text-xs md:text-sm relative z-10">
+                            <div className="space-y-1.5 border-b border-emerald-100 pb-4">
+                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                Renda Mensal Gerada
+                              </p>
+                              <p className="text-lg md:text-2xl font-bold text-emerald-950">
+                                {formatCurrency(resultadosConstrucao.rendaMensalGerada)}
+                              </p>
+                            </div>
+                            <div className="space-y-1.5">
+                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                                Renda Aluguel Estimada
+                              </p>
+                              <p className="text-lg md:text-2xl font-bold text-emerald-950">
+                                {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                          <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+                            <Wallet className="w-20 h-20 text-emerald-900" />
+                          </div>
+                          <CardContent className="py-5 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                            <div className="space-y-1.5">
+                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                                <Wallet className="w-3 h-3" />
+                                Lucro Líquido Mensal
+                              </p>
+                              <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">
+                                {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
                   </>
                 ) : effectiveTipoSimulacao === "consorcio" ? (
                   <>
@@ -1850,10 +1911,9 @@ export function SimuladorConsorcio() {
                 )
               }
             </motion.div >
-          )
-          }
-        </AnimatePresence >
-      </motion.div >
+          )}
+        </AnimatePresence>
+      </div>
 
       {/* PDF Success Modal */}
       {

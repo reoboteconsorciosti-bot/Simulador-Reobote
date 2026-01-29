@@ -110,6 +110,14 @@ export function formatProposalPayload(
         vRecPro: formatCurrency(vRecProVal),
         parcContem: outputs.parcContem,
         dataSimulacao,
-        tipoBem: inputs.tipoBem.charAt(0).toUpperCase() + inputs.tipoBem.slice(1), // Capitalize
+        tipoBem: formatTipoBem(inputs.tipoBem),
     }
+}
+
+function formatTipoBem(tipo: string): string {
+    const map: Record<string, string> = {
+        imovel: "Imóvel",
+        automovel: "Automóvel",
+    }
+    return map[tipo.toLowerCase()] || (tipo.charAt(0).toUpperCase() + tipo.slice(1))
 }
