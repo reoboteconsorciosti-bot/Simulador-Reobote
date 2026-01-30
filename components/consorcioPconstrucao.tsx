@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { parseCurrencyInput } from "@/lib/formatters"
-import { calcularConstrucao, calcularCreditoAtualizado, calcularValorizacao, type ConstrucaoInputs, type ConstrucaoOutputs } from "./calcConstrucao"
+import { calcularConstrucao, calcularCreditoAtualizado, calcularValorizacao, calcularRendaMensal, calcularRendaLiquidaMensal, type ConstrucaoInputs, type ConstrucaoOutputs } from "./calcConstrucao"
 
 type ModoContemplacao = "sorteio" | "lance_fixo" | "lance_livre"
 
@@ -22,6 +22,7 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
     const [valorCredito, setValorCredito] = useState("")
     const [prazo, setPrazo] = useState("")
     const [prazoError, setPrazoError] = useState<string>("")
+    const [creditoError, setCreditoError] = useState<string>("")
     const [taxaAdm, setTaxaAdm] = useState("") // Taxa Fixa ou Mensal? Assumir valor monetário pela fórmula (Taxa + ...)
     const [taxaINCC, setTaxaINCC] = useState("") // %
     const [tempoContemplacao, setTempoContemplacao] = useState("")
@@ -139,6 +140,12 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
             return
         }
         setPrazoError("")
+        if (inputCredito <= 0) {
+            setCreditoError("Informe o crédito do consórcio.")
+            return
+        }
+        setCreditoError("")
+
 
         const inputs: ConstrucaoInputs = {
             credito: inputCredito,
@@ -188,6 +195,11 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
             const novaParcelaComPlanoESeguro = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
             const saldoDevedorComLance = novaParcelaComPlanoESeguro * parcelasAPagarQtdComLance
 
+            const rendaMensalGeradaCalc = calcularRendaMensal(
+                outputs.creditoAtualizado + calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
+                Number(rendaMensalImovel) || 0
+            )
+
             const outputsComLance: ConstrucaoOutputs = {
                 ...outputs,
                 parcelaIntegral: calcParcelaComPlanoESeguro(inputs.credito, inputs.prazo, inputs.taxa),
@@ -209,6 +221,8 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                 valorizacaoReal: calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
                 creditoComValorizacao: outputs.creditoAtualizado + calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
                 rendaMensalImovel: Number(rendaMensalImovel) || 0,
+                rendaMensalGerada: rendaMensalGeradaCalc,
+                rendaMensalAluguel: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
                 reinvestimentoMensal: Number(reinvestimentoMensal) || 0,
                 modoContemplacao
             }
@@ -238,10 +252,17 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                                 <Input
                                     id="credito"
                                     value={valorCredito}
-                                    onChange={(e) => handleCurrencyChange(e.target.value, setValorCredito)}
+                                    onChange={(e) => {
+                                        handleCurrencyChange(e.target.value, setValorCredito)
+                                        if (creditoError) setCreditoError("")
+                                    }}
                                     placeholder="0,00"
                                     inputMode="numeric"
+                                    className={creditoError ? "border-red-500 focus-visible:ring-red-500" : undefined}
                                 />
+                                {creditoError && (
+                                    <p className="text-xs text-red-600">{creditoError}</p>
+                                )}
                             </div>
 
                             {/* Prazo */}

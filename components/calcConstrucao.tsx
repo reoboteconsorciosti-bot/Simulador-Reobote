@@ -14,6 +14,9 @@ export interface ConstrucaoOutputs {
     historicoReajustes: Array<{ mes: number; valor: number }>
     contemplacaoMes: number
     tipoReajuste: "anual" | "semestral"
+    rendaMensalGerada?: number // Novo calculo
+    rendaMensalAluguel?: number // Novo calculo (Renda Gerada - Nova Parcela)
+
 
     // Novos campos para compatibilidade com o UI
     custoTotal: number
@@ -151,4 +154,21 @@ export function calcularConstrucao(inputs: ConstrucaoInputs): ConstrucaoOutputs 
         prazoRestante: parcelasAPagarQtd,
         inputs
     }
+}
+
+/**
+ * Calcula a renda mensal gerada com base no valor do imóvel e taxa de aluguel/rendimento
+ * @param valorImovelValorizado Valor do Crédito + Valorização
+ * @param taxaRendaMensal Taxa mensal em porcentagem (ex: 0.5 para 0.5%)
+ */
+export function calcularRendaMensal(valorImovelValorizado: number, taxaRendaMensal: number): number {
+    return valorImovelValorizado * (taxaRendaMensal / 100)
+}
+
+/**
+ * Calcula a renda líquida mensal
+ * Renda Líquida = Renda Mensal Gerada - Nova Parcela
+ */
+export function calcularRendaLiquidaMensal(rendaMensalGerada: number, novaParcela: number): number {
+    return rendaMensalGerada - novaParcela
 }

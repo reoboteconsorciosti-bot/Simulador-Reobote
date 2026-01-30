@@ -1433,18 +1433,38 @@ export function SimuladorConsorcio() {
                         </div>
                       </div>
 
-                      <div className="grid md:grid-cols-3 gap-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        {/* 1. Lucro Líquido Mensal (Destaque Topo) */}
+                        <Card className="md:col-span-2 border-emerald-500/50 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-md relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                          <div className="absolute top-0 right-0 p-3 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
+                            <Wallet className="w-24 h-24 text-emerald-900" />
+                          </div>
+                          <CardContent className="py-6 flex flex-col items-center text-center justify-center h-full relative z-10">
+                            <p className="font-bold text-emerald-800 text-xs md:text-sm uppercase tracking-wider flex items-center justify-center gap-2 mb-1">
+                              <Wallet className="w-4 h-4" />
+                              Lucro Líquido Mensal
+                            </p>
+                            <p className="text-3xl md:text-5xl font-extrabold text-emerald-600">
+                              {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
+                            </p>
+                            <p className="text-xs text-emerald-600/70 mt-2 font-medium">
+                              (Renda Gerada - Nova Parcela)
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        {/* 2. Crédito com Valorização */}
                         <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
                           <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
                             <TrendingUp className="w-20 h-20 text-emerald-900" />
                           </div>
-                          <CardContent className="py-5 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
-                            <div className="space-y-1.5">
+                          <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                            <div className="space-y-2">
                               <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
                                 <TrendingUp className="w-3 h-3" />
                                 Crédito com Valorização
                               </p>
-                              <p className="text-lg md:text-2xl font-bold text-emerald-950">
+                              <p className="text-xl md:text-3xl font-bold text-emerald-950">
                                 {formatCurrency(resultadosConstrucao.creditoComValorizacao ?? resultadosConstrucao.creditoAtualizado)}
                               </p>
                               {typeof resultadosConstrucao.valorizacaoReal === "number" && (
@@ -1455,43 +1475,20 @@ export function SimuladorConsorcio() {
                             </div>
                           </CardContent>
                         </Card>
+
+                        {/* 3. Renda Mensal Gerada */}
                         <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
                           <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
                             <TrendingUp className="w-20 h-20 text-emerald-900" />
                           </div>
-                          <CardContent className="py-5 grid grid-cols-1 gap-6 text-xs md:text-sm relative z-10">
-                            <div className="space-y-1.5 border-b border-emerald-100 pb-4">
+                          <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                            <div className="space-y-2">
                               <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
                                 <TrendingUp className="w-3 h-3" />
                                 Renda Mensal Gerada
                               </p>
-                              <p className="text-lg md:text-2xl font-bold text-emerald-950">
+                              <p className="text-xl md:text-3xl font-bold text-emerald-950">
                                 {formatCurrency(resultadosConstrucao.rendaMensalGerada)}
-                              </p>
-                            </div>
-                            <div className="space-y-1.5">
-                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                                Renda Aluguel Estimada
-                              </p>
-                              <p className="text-lg md:text-2xl font-bold text-emerald-950">
-                                {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
-                          <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
-                            <Wallet className="w-20 h-20 text-emerald-900" />
-                          </div>
-                          <CardContent className="py-5 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
-                            <div className="space-y-1.5">
-                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                                <Wallet className="w-3 h-3" />
-                                Lucro Líquido Mensal
-                              </p>
-                              <p className="text-2xl md:text-3xl font-extrabold text-emerald-600">
-                                {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
                               </p>
                             </div>
                           </CardContent>
