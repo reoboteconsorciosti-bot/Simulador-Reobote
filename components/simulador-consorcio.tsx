@@ -831,9 +831,9 @@ export function SimuladorConsorcio() {
               variant="outline"
               size="sm"
               onClick={() => setModoConstrucao(!modoConstrucao)}
-              className={`flex-1 border-dashed ${modoConstrucao ? "bg-blue-50 text-blue-600 border-blue-200" : "text-muted-foreground"}`}
+              className={`flex-1 border-dashed ${modoConstrucao ? "bg-blue-50 text-blue-600 border-blue-200" : "bg-amber-50/80 hover:bg-amber-100 text-amber-800 border-amber-200"}`}
             >
-              {modoConstrucao ? "Voltar ao Padrão" : "Construção"}
+              {modoConstrucao ? "Voltar ao Padrão" : <><Hammer className="w-4 h-4 mr-2" />Construção</>}
             </Button>
             <Button
               variant="outline"

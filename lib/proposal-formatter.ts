@@ -111,6 +111,7 @@ export function formatProposalPayload(
         parcContem: outputs.parcContem,
         dataSimulacao,
         tipoBem: formatTipoBem(inputs.tipoBem),
+
     }
 }
 
