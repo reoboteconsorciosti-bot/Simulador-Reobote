@@ -26,7 +26,7 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
     const [taxaAdm, setTaxaAdm] = useState("") // Taxa Fixa ou Mensal? Assumir valor monetário pela fórmula (Taxa + ...)
     const [taxaINCC, setTaxaINCC] = useState("") // %
     const [tempoContemplacao, setTempoContemplacao] = useState("")
-    const [tipoReajuste, setTipoReajuste] = useState<"anual" | "semestral">("anual")
+    const [tipoReajuste, setTipoReajuste] = useState<"anual" | "semestral">("semestral")
 
     const [planoLight, setPlanoLight] = useState<string>("1")
     const [seguroPrestamista, setSeguroPrestamista] = useState<string>("3")
@@ -38,6 +38,7 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
     const [valorizacaoBem, setValorizacaoBem] = useState("")
     const [rendaMensalImovel, setRendaMensalImovel] = useState("")
     const [reinvestimentoMensal, setReinvestimentoMensal] = useState("")
+    const [reinvestimentoMensalSecundario, setReinvestimentoMensalSecundario] = useState("")
 
     const creditoNumber = parseCurrencyInput(valorCredito)
     // const lanceLivreValorNumber = parseCurrencyInput(lanceLivreValor) // Não usado mais diretamente como input
@@ -167,9 +168,19 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
 
             // Lógica de Lances Mista
             const isLanceMode = modoContemplacao === "lance_livre" || modoContemplacao === "lance_fixo"
-            const totalLance = modoContemplacao === "lance_fixo" ? valorLanceFixoCalc : valorLanceLivreCalc + valorLanceEmbutidoCalc
-            const valorLanceEmbutidoEfetivo = modoContemplacao === "lance_fixo" ? 0 : valorLanceEmbutidoCalc
-            const valorLanceLivreEfetivo = modoContemplacao === "lance_fixo" ? valorLanceFixoCalc : valorLanceLivreCalc
+            let totalLance = 0
+            let valorLanceEmbutidoEfetivo = 0
+            let valorLanceLivreEfetivo = 0
+
+            if (modoContemplacao === "lance_fixo") {
+                totalLance = valorLanceFixoCalc
+                valorLanceEmbutidoEfetivo = valorLanceFixoCalc
+                valorLanceLivreEfetivo = 0
+            } else if (modoContemplacao === "lance_livre") {
+                totalLance = valorLanceLivreCalc + valorLanceEmbutidoCalc
+                valorLanceEmbutidoEfetivo = valorLanceEmbutidoCalc
+                valorLanceLivreEfetivo = valorLanceLivreCalc
+            }
 
             // Converte valor de lance em "qtd de parcelas" para abater prazo (mesma ideia do simulador normal)
             // Aqui usamos uma parcela referência com Plano Light + Seguro (mesma lógica do simulador normal)
@@ -196,7 +207,7 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
             const saldoDevedorComLance = novaParcelaComPlanoESeguro * parcelasAPagarQtdComLance
 
             const rendaMensalGeradaCalc = calcularRendaMensal(
-                outputs.creditoAtualizado + calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
+                (baseCreditoLance - valorLanceEmbutidoEfetivo) + calcularValorizacao(baseCreditoLance - valorLanceEmbutidoEfetivo, Number(valorizacaoBem) || 0),
                 Number(rendaMensalImovel) || 0
             )
 
@@ -218,12 +229,12 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                 saldoDevedor: isLanceMode ? saldoDevedorComLance : outputs.saldoDevedor,
 
                 // Novos cálculos de valorização
-                valorizacaoReal: calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
-                creditoComValorizacao: outputs.creditoAtualizado + calcularValorizacao(outputs.creditoAtualizado, Number(valorizacaoBem) || 0),
+                valorizacaoReal: calcularValorizacao(baseCreditoLance - valorLanceEmbutidoEfetivo, Number(valorizacaoBem) || 0),
+                creditoComValorizacao: (baseCreditoLance - valorLanceEmbutidoEfetivo) + calcularValorizacao(baseCreditoLance - valorLanceEmbutidoEfetivo, Number(valorizacaoBem) || 0),
                 rendaMensalImovel: Number(rendaMensalImovel) || 0,
                 rendaMensalGerada: rendaMensalGeradaCalc,
                 rendaMensalAluguel: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
-                reinvestimentoMensal: Number(reinvestimentoMensal) || 0,
+                reinvestimentoMensal: parseCurrencyInput(reinvestimentoMensal), // Agora é valor monetário
                 modoContemplacao
             }
 
@@ -308,10 +319,25 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                                     placeholder="2.5"
                                     step="0.1"
                                 />
+                                <div className="space-y-2 flex flex-col justify-end pb-2">
+                                    <Label className="mb-2 block">Reajuste</Label>
+                                    <div className="flex items-center space-x-2">
+                                        <Label htmlFor="reajuste-mode" className={tipoReajuste === "semestral" ? "font-bold text-emerald-600" : "text-muted-foreground"}>Semestral</Label>
+                                        <Switch
+                                            id="reajuste-mode"
+                                            checked={tipoReajuste === "anual"}
+                                            onCheckedChange={(checked: boolean) =>
+                                                setTipoReajuste(checked ? "anual" : "semestral")
+                                            }
+                                            className="data-[state=checked]:bg-emerald-600 data-[state=unchecked]:bg-emerald-600"
+                                        />
+                                        <Label htmlFor="reajuste-mode" className={tipoReajuste === "anual" ? "font-bold text-emerald-600" : "text-muted-foreground"}>Anual</Label>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Contemplação */}
-                            <div className="space-y-2">
+                            <div className="space-y-2 w-130">
                                 <Label htmlFor="contemplacao">Contemplação (mês)</Label>
                                 <Input
                                     id="contemplacao"
@@ -323,20 +349,6 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                             </div>
 
                             {/* Toggle Reajuste */}
-                            <div className="space-y-2 flex flex-col justify-end pb-2">
-                                <Label className="mb-3 block">Tipo de Reajuste</Label>
-                                <div className="flex items-center space-x-2">
-                                    <Label htmlFor="reajuste-mode" className={tipoReajuste === "semestral" ? "font-bold" : "text-muted-foreground"}>Semestral</Label>
-                                    <Switch
-                                        id="reajuste-mode"
-                                        checked={tipoReajuste === "anual"}
-                                        onCheckedChange={(checked: boolean) =>
-                                            setTipoReajuste(checked ? "anual" : "semestral")
-                                        }
-                                    />
-                                    <Label htmlFor="reajuste-mode" className={tipoReajuste === "anual" ? "font-bold" : "text-muted-foreground"}>Anual</Label>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="space-y-4 w-full">
@@ -647,15 +659,28 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="reinvestimentoMensal">Reinvestimento Mensal (%)</Label>
-                            <Input
-                                id="reinvestimentoMensal"
-                                type="number"
-                                step="0.1"
-                                value={reinvestimentoMensal}
-                                onChange={(e) => setReinvestimentoMensal(e.target.value)}
-                                placeholder="Ex: 0.5"
-                            />
+                            <Label htmlFor="reinvestimentoMensal">Reinvestimento Mensal (R$)</Label>
+                            <div className="flex items-center w-full rounded-md border border-input bg-transparent overflow-hidden focus-within:ring-1 focus-within:ring-ring">
+                                <Input
+                                    id="reinvestimentoMensal"
+                                    value={reinvestimentoMensal}
+                                    onChange={(e) => handleCurrencyChange(e.target.value, setReinvestimentoMensal)}
+                                    placeholder="0,00"
+                                    className="border-0 focus-visible:ring-0 rounded-none shadow-none h-9 px-3"
+                                    inputMode="numeric"
+                                />
+
+                                <div className="h-6 w-[1px] bg-border mx-1" />
+                                <Input
+                                    id="reinvestimentoMensalSecundario"
+                                    type="number"
+                                    step="0.1"
+                                    value={reinvestimentoMensalSecundario}
+                                    onChange={(e) => setReinvestimentoMensalSecundario(e.target.value)}
+                                    placeholder="Ex: 0.8"
+                                    className="border-0 focus-visible:ring-0 rounded-none shadow-none h-9 px-3 bg-slate-50/50"
+                                />
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

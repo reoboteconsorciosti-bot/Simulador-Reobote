@@ -822,7 +822,7 @@ export function SimuladorConsorcio() {
         <div
           className={
             showResults
-              ? "lg:col-span-1 lg:sticky lg:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto space-y-4"
+              ? "lg:col-span-1 lg:sticky lg:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto overflow-x-hidden space-y-4"
               : `w-full ${modoConstrucao ? "max-w-7xl" : "max-w-xl"} space-y-4`
           }
         >
