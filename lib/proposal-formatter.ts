@@ -20,7 +20,6 @@ export interface WebhookPayload {
     parcContem: number
     dataSimulacao: string
     tipoBem: string
-    
 }
 
 const formatCurrency = (value: number): string => {
@@ -112,6 +111,7 @@ export function formatProposalPayload(
         parcContem: outputs.parcContem,
         dataSimulacao,
         tipoBem: formatTipoBem(inputs.tipoBem),
+
     }
 }
 

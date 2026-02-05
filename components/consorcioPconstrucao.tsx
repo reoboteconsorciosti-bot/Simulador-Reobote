@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Calculator, Dices, Hammer, SlidersHorizontal, Target } from "lucide-react"
+import { Calculator, CheckCircle, Dices, Hammer, SlidersHorizontal, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,15 +9,18 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { parseCurrencyInput } from "@/lib/formatters"
 import { calcularConstrucao, calcularCreditoAtualizado, calcularValorizacao, calcularRendaMensal, calcularRendaLiquidaMensal, type ConstrucaoInputs, type ConstrucaoOutputs } from "./calcConstrucao"
+import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
 
 type ModoContemplacao = "sorteio" | "lance_fixo" | "lance_livre"
 
 interface ConsorcioPConstrucaoProps {
     onSimular: (dados: ConstrucaoOutputs) => void
-    onGerarPDF?: () => void
+    nomeCliente: string
+    nomeConsultor: string
+    tipoBem: "imovel" | "automovel"
 }
 
-export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstrucaoProps) {
+export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, tipoBem }: ConsorcioPConstrucaoProps) {
     // STATE - Inputs
     const [valorCredito, setValorCredito] = useState("")
     const [prazo, setPrazo] = useState("")
@@ -39,6 +42,9 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
     const [rendaMensalImovel, setRendaMensalImovel] = useState("")
     const [reinvestimentoMensal, setReinvestimentoMensal] = useState("")
     const [reinvestimentoMensalSecundario, setReinvestimentoMensalSecundario] = useState("")
+
+    const [generatingPdfConstrucao, setGeneratingPdfConstrucao] = useState(false)
+    const [showPdfSuccessModalConstrucao, setShowPdfSuccessModalConstrucao] = useState(false)
 
     const creditoNumber = parseCurrencyInput(valorCredito)
     // const lanceLivreValorNumber = parseCurrencyInput(lanceLivreValor) // Não usado mais diretamente como input
@@ -116,6 +122,119 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
             currency: "BRL",
         })
 
+    const getOutputsComLance = (): ConstrucaoOutputs | null => {
+        const inputCredito = parseCurrencyInput(valorCredito)
+        const inputPrazo = Number(prazo)
+        const inputTaxa = Number(taxaAdm)
+        const inputINCC = Number(taxaINCC.replace(",", "."))
+        const inputContemplacao = Number(tempoContemplacao)
+
+        if (inputPrazo < 1) {
+            setPrazoError("Informe o prazo em meses.")
+            return null
+        }
+        setPrazoError("")
+
+        if (inputCredito <= 0) {
+            setCreditoError("Informe o crédito do consórcio.")
+            return null
+        }
+        setCreditoError("")
+
+        const inputs: ConstrucaoInputs = {
+            credito: inputCredito,
+            prazo: inputPrazo,
+            taxa: inputTaxa,
+            incc: inputINCC,
+            contemplacao: inputContemplacao,
+            reajuste: tipoReajuste
+        }
+
+        const outputs = calcularConstrucao(inputs)
+
+        const baseCreditoLance = outputs.creditoAtualizado
+        const valorLanceLivreCalc = baseCreditoLance * (lanceLivrePercentNumber / 100)
+        const valorLanceEmbutidoCalc = baseCreditoLance * (lanceEmbutidoPercentNumber / 100)
+        const valorLanceFixoCalc = baseCreditoLance * (lanceFixoPercentNumber / 100)
+
+        const isLanceMode = modoContemplacao === "lance_livre" || modoContemplacao === "lance_fixo"
+        let totalLance = 0
+        let valorLanceEmbutidoEfetivo = 0
+        let valorLanceLivreEfetivo = 0
+
+        if (modoContemplacao === "lance_fixo") {
+            totalLance = valorLanceFixoCalc
+            valorLanceEmbutidoEfetivo = valorLanceFixoCalc
+            valorLanceLivreEfetivo = 0
+        } else if (modoContemplacao === "lance_livre") {
+            totalLance = valorLanceLivreCalc + valorLanceEmbutidoCalc
+            valorLanceEmbutidoEfetivo = valorLanceEmbutidoCalc
+            valorLanceLivreEfetivo = valorLanceLivreCalc
+        }
+
+        const parcelaReferencia = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
+        const totalBidParcels = parcelaReferencia > 0 ? round0(totalLance / parcelaReferencia) : 0
+        const D20_qtd_parcelas_embutido = parcelaReferencia > 0 ? round0(valorLanceEmbutidoEfetivo / parcelaReferencia) : 0
+
+        const diluirLanceNumber = Number(diluirLance) || 3
+
+        let parcelasAbatidas = 0
+        if (totalBidParcels > 0) {
+            if (diluirLanceNumber === 2) {
+                parcelasAbatidas = 0
+            } else if (diluirLanceNumber === 1) {
+                parcelasAbatidas = D20_qtd_parcelas_embutido
+            } else {
+                parcelasAbatidas = totalBidParcels
+            }
+        }
+
+        const qtdParcelasPagasComLance = outputs.qtdParcelasPagas + parcelasAbatidas
+        const parcelasAPagarQtdComLance = Math.max(0, inputs.prazo - qtdParcelasPagasComLance)
+        const novaParcelaComPlanoESeguro = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
+        const saldoDevedorComLance = novaParcelaComPlanoESeguro * parcelasAPagarQtdComLance
+
+        const creditoPosEmbutido = baseCreditoLance - valorLanceEmbutidoEfetivo
+        const valorizacaoRealCalc = calcularValorizacao(creditoPosEmbutido, Number(valorizacaoBem) || 0)
+        const creditoComValorizacaoCalc = creditoPosEmbutido + valorizacaoRealCalc
+
+        const rendaMensalGeradaCalc = calcularRendaMensal(
+            creditoComValorizacaoCalc,
+            Number(rendaMensalImovel) || 0
+        )
+
+        const outputsComLance: ConstrucaoOutputs = {
+            ...outputs,
+            parcelaIntegral: calcParcelaComPlanoESeguro(inputs.credito, inputs.prazo, inputs.taxa),
+            novaParcela: novaParcelaComPlanoESeguro,
+            valorLanceTotal: isLanceMode ? totalLance : 0,
+            valorLanceEmbutido: isLanceMode ? valorLanceEmbutidoEfetivo : 0,
+            valorLancePago: isLanceMode ? valorLanceLivreEfetivo : 0,
+            creditoDisponivel: isLanceMode ? creditoPosEmbutido : baseCreditoLance,
+            custoTotal: outputs.custoTotal + (isLanceMode ? valorLanceLivreEfetivo : 0),
+            qtdParcelasPagas: isLanceMode ? qtdParcelasPagasComLance : outputs.qtdParcelasPagas,
+            parcelasAPagarQtd: isLanceMode ? parcelasAPagarQtdComLance : outputs.parcelasAPagarQtd,
+            prazoRestante: isLanceMode ? parcelasAPagarQtdComLance : outputs.prazoRestante,
+            saldoDevedor: isLanceMode ? saldoDevedorComLance : outputs.saldoDevedor,
+            valorizacaoReal: valorizacaoRealCalc,
+            creditoComValorizacao: creditoComValorizacaoCalc,
+            rendaMensalImovel: Number(rendaMensalImovel) || 0,
+            rendaMensalGerada: rendaMensalGeradaCalc,
+            rendaMensalAluguel: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
+            reinvestimentoMensal: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
+            modoContemplacao
+        }
+
+        setReinvestimentoMensal(
+            (outputsComLance.rendaMensalAluguel ?? 0).toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            })
+        )
+
+        return outputsComLance
+    }
+
     // HANDLERS
     const handleCurrencyChange = (value: string, setter: (v: string) => void) => {
         const numericValue = value.replace(/\D/g, "")
@@ -129,118 +248,65 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
     }
 
     const handleCalcular = () => {
-        const inputCredito = parseCurrencyInput(valorCredito)
-        const inputPrazo = Number(prazo)
-        const inputTaxa = Number(taxaAdm)
-
-        const inputINCC = Number(taxaINCC.replace(",", "."))
-        const inputContemplacao = Number(tempoContemplacao)
-
-        if (inputPrazo < 1) {
-            setPrazoError("Informe o prazo em meses.")
-            return
-        }
-        setPrazoError("")
-        if (inputCredito <= 0) {
-            setCreditoError("Informe o crédito do consórcio.")
-            return
-        }
-        setCreditoError("")
-
-
-        const inputs: ConstrucaoInputs = {
-            credito: inputCredito,
-            prazo: inputPrazo,
-            taxa: inputTaxa,
-            incc: inputINCC,
-            contemplacao: inputContemplacao,
-            reajuste: tipoReajuste
-        }
-
         try {
-            const outputs = calcularConstrucao(inputs)
-
-            // Para construção, os lances devem ser baseados no CRÉDITO ATUALIZADO NA CONTEMPLAÇÃO
-            const baseCreditoLance = outputs.creditoAtualizado
-            const valorLanceLivreCalc = baseCreditoLance * (lanceLivrePercentNumber / 100)
-            const valorLanceEmbutidoCalc = baseCreditoLance * (lanceEmbutidoPercentNumber / 100)
-            const valorLanceFixoCalc = baseCreditoLance * (lanceFixoPercentNumber / 100)
-
-            // Lógica de Lances Mista
-            const isLanceMode = modoContemplacao === "lance_livre" || modoContemplacao === "lance_fixo"
-            let totalLance = 0
-            let valorLanceEmbutidoEfetivo = 0
-            let valorLanceLivreEfetivo = 0
-
-            if (modoContemplacao === "lance_fixo") {
-                totalLance = valorLanceFixoCalc
-                valorLanceEmbutidoEfetivo = valorLanceFixoCalc
-                valorLanceLivreEfetivo = 0
-            } else if (modoContemplacao === "lance_livre") {
-                totalLance = valorLanceLivreCalc + valorLanceEmbutidoCalc
-                valorLanceEmbutidoEfetivo = valorLanceEmbutidoCalc
-                valorLanceLivreEfetivo = valorLanceLivreCalc
-            }
-
-            // Converte valor de lance em "qtd de parcelas" para abater prazo (mesma ideia do simulador normal)
-            // Aqui usamos uma parcela referência com Plano Light + Seguro (mesma lógica do simulador normal)
-            const parcelaReferencia = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
-            const totalBidParcels = parcelaReferencia > 0 ? round0(totalLance / parcelaReferencia) : 0
-            const D20_qtd_parcelas_embutido = parcelaReferencia > 0 ? round0(valorLanceEmbutidoEfetivo / parcelaReferencia) : 0
-
-            const diluirLanceNumber = Number(diluirLance) || 3
-
-            let parcelasAbatidas = 0
-            if (totalBidParcels > 0) {
-                if (diluirLanceNumber === 2) {
-                    parcelasAbatidas = 0
-                } else if (diluirLanceNumber === 1) {
-                    parcelasAbatidas = D20_qtd_parcelas_embutido
-                } else {
-                    parcelasAbatidas = totalBidParcels
-                }
-            }
-
-            const qtdParcelasPagasComLance = outputs.qtdParcelasPagas + parcelasAbatidas
-            const parcelasAPagarQtdComLance = Math.max(0, inputs.prazo - qtdParcelasPagasComLance)
-            const novaParcelaComPlanoESeguro = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
-            const saldoDevedorComLance = novaParcelaComPlanoESeguro * parcelasAPagarQtdComLance
-
-            const rendaMensalGeradaCalc = calcularRendaMensal(
-                (baseCreditoLance - valorLanceEmbutidoEfetivo) + calcularValorizacao(baseCreditoLance - valorLanceEmbutidoEfetivo, Number(valorizacaoBem) || 0),
-                Number(rendaMensalImovel) || 0
-            )
-
-            const outputsComLance: ConstrucaoOutputs = {
-                ...outputs,
-                parcelaIntegral: calcParcelaComPlanoESeguro(inputs.credito, inputs.prazo, inputs.taxa),
-                novaParcela: novaParcelaComPlanoESeguro,
-                valorLanceTotal: isLanceMode ? totalLance : 0,
-                valorLanceEmbutido: isLanceMode ? valorLanceEmbutidoEfetivo : 0,
-                valorLancePago: isLanceMode ? valorLanceLivreEfetivo : 0,
-                creditoDisponivel: isLanceMode ? baseCreditoLance - valorLanceEmbutidoEfetivo : baseCreditoLance,
-                // Nota: O creditoAtualizado vem da função com INCC. Se houver embutido, deduzimos dele.
-                // A lógica simples aqui deduz do valor base atualizado.
-
-                custoTotal: outputs.custoTotal + (isLanceMode ? valorLanceLivreEfetivo : 0),
-                qtdParcelasPagas: isLanceMode ? qtdParcelasPagasComLance : outputs.qtdParcelasPagas,
-                parcelasAPagarQtd: isLanceMode ? parcelasAPagarQtdComLance : outputs.parcelasAPagarQtd,
-                prazoRestante: isLanceMode ? parcelasAPagarQtdComLance : outputs.prazoRestante,
-                saldoDevedor: isLanceMode ? saldoDevedorComLance : outputs.saldoDevedor,
-
-                // Novos cálculos de valorização
-                valorizacaoReal: calcularValorizacao(baseCreditoLance - valorLanceEmbutidoEfetivo, Number(valorizacaoBem) || 0),
-                creditoComValorizacao: (baseCreditoLance - valorLanceEmbutidoEfetivo) + calcularValorizacao(baseCreditoLance - valorLanceEmbutidoEfetivo, Number(valorizacaoBem) || 0),
-                rendaMensalImovel: Number(rendaMensalImovel) || 0,
-                rendaMensalGerada: rendaMensalGeradaCalc,
-                rendaMensalAluguel: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
-                reinvestimentoMensal: parseCurrencyInput(reinvestimentoMensal), // Agora é valor monetário
-                modoContemplacao
-            }
-
+            const outputsComLance = getOutputsComLance()
+            if (!outputsComLance) return
             onSimular(outputsComLance)
         } catch (error: any) {
             alert(error.message)
+        }
+    }
+
+    const canGeneratePdfConstrucao = (() => {
+        if (generatingPdfConstrucao) return false
+        if (parseCurrencyInput(valorCredito) <= 0) return false
+        if (Number(prazo) < 1) return false
+        if (!taxaAdm.toString().trim()) return false
+        if (!taxaINCC.toString().trim()) return false
+        if (Number(tempoContemplacao) < 0 || tempoContemplacao.toString().trim() === "") return false
+        if (!valorizacaoBem.toString().trim()) return false
+        if (!rendaMensalImovel.toString().trim()) return false
+        if (modoContemplacao === "lance_livre") {
+            if (!lanceLivrePercent.toString().trim()) return false
+            if (!lanceEmbutidoPercent.toString().trim()) return false
+        }
+        return true
+    })()
+
+    const handleGerarPdfConstrucao = async () => {
+        try {
+            const outputsComLance = getOutputsComLance()
+            if (!outputsComLance) return
+
+            setGeneratingPdfConstrucao(true)
+            const res = await gerarPdfConstrucao({
+                inputs: {
+                    nomeCliente,
+                    nomeConsultor,
+                    credito: parseCurrencyInput(valorCredito),
+                    prazoMeses: Number(prazo),
+                    contemplacaoMes: Number(tempoContemplacao) || 0,
+                    modoContemplacao,
+                    planoReducao: planoLight,
+                    seguroPrestamista,
+                    formaAbatimento: diluirLance,
+                    valorizacaoPercent: valorizacaoBem,
+                    tipoBem: "construcao",
+                },
+                outputs: outputsComLance,
+            })
+
+            if (res.ok) {
+                setShowPdfSuccessModalConstrucao(true)
+            } else {
+                const err = await res.json().catch(() => ({}))
+                alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
+            }
+        } catch (error) {
+            console.error(error)
+            alert("Erro de conexão ao tentar gerar o PDF.")
+        } finally {
+            setGeneratingPdfConstrucao(false)
         }
     }
 
@@ -690,18 +756,46 @@ export function ConsorcioPConstrucao({ onSimular, onGerarPDF }: ConsorcioPConstr
                     Calcular Construção
                 </Button>
 
-                {onGerarPDF && (
-                    <Button
-                        type="button"
-                        className="w-full bg-red-600 hover:bg-red-700 text-white"
-                        size="lg"
-                        onClick={onGerarPDF}
-                    >
-                        Gerar PDF
-                    </Button>
-                )}
+                <Button
+                    type="button"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    size="lg"
+                    onClick={handleGerarPdfConstrucao}
+                    disabled={!canGeneratePdfConstrucao}
+                >
+                    {generatingPdfConstrucao ? "Enviando..." : "Gerar PDF da Construção"}
+                </Button>
 
             </div>
+
+            {showPdfSuccessModalConstrucao && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+                    <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        onClick={() => setShowPdfSuccessModalConstrucao(false)}
+                        aria-hidden="true"
+                    />
+                    <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="mb-4 rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/30 dark:text-green-500">
+                                <CheckCircle className="h-8 w-8" />
+                            </div>
+
+                            <h3 className="text-lg font-semibold text-foreground">Solicitação Enviada!</h3>
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                Solicitação enviada com sucesso! O PDF será gerado em instantes.
+                            </p>
+
+                            <Button
+                                className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => setShowPdfSuccessModalConstrucao(false)}
+                            >
+                                Entendi
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

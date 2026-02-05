@@ -13,6 +13,7 @@ import { ComparisonResults } from "@/components/comparison-results"
 import { useAuth } from "@/components/auth-context"
 import { formatCurrency } from "@/lib/formatters"
 import { calculateSimulation, type SimulationInputs, type SimulationOutputs } from "@/lib/calculate-simulation"
+import { gerarPdfPadrao } from "@/lib/gerar-pdf-padrao"
 import { ConsorcioPConstrucao } from "./consorcioPconstrucao"
 import { Hammer, Logs } from "lucide-react"
 
@@ -68,8 +69,6 @@ const TAXA_CDB_PADRAO = 1.0
 const TAXA_CARTA_CREDITO_PADRAO = 0.7
 
 const SIMULATOR_STORAGE_KEY = "sim-pro-simulator-state"
-
-import { formatProposalPayload } from "@/lib/proposal-formatter"
 
 export function SimuladorConsorcio() {
   const [resultadosConstrucao, setResultadosConstrucao] = useState<any>(null)
@@ -544,8 +543,8 @@ export function SimuladorConsorcio() {
 
     setGeneratingPdf(true)
     try {
-      const payload = formatProposalPayload(
-        {
+      const res = await gerarPdfPadrao({
+        inputs: {
           nomeCliente,
           nomeConsultor,
           valorBem: baseValorBem,
@@ -555,13 +554,7 @@ export function SimuladorConsorcio() {
           percentualEmbutido,
           tipoBem,
         },
-        simulacaoOficial
-      )
-
-      const res = await fetch("/api/webhook/proposal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        outputs: simulacaoOficial,
       })
 
       if (res.ok) {
@@ -909,7 +902,9 @@ export function SimuladorConsorcio() {
                 setResultadosConstrucao(dados)
                 setShowResults(true)
               }}
-              onGerarPDF={handleGeneratePdf}
+              nomeCliente={nomeCliente}
+              nomeConsultor={nomeConsultor}
+              tipoBem={tipoBem}
             />
           ) : (
             <Card className={showResults ? "" : "aspect-square"}>
@@ -1468,8 +1463,8 @@ export function SimuladorConsorcio() {
                                 {formatCurrency(resultadosConstrucao.creditoComValorizacao ?? resultadosConstrucao.creditoAtualizado)}
                               </p>
                               {typeof resultadosConstrucao.valorizacaoReal === "number" && (
-                                <p className="text-[10px] text-emerald-600 font-medium uppercase tracking-wide">
-                                  + {formatCurrency(resultadosConstrucao.valorizacaoReal)} de valorização
+                                <p className="text-[15px] text-emerald-600 font-medium tracking-wide">
+                                  Valorização de {formatCurrency(resultadosConstrucao.valorizacaoReal)}
                                 </p>
                               )}
                             </div>

@@ -24,7 +24,7 @@ export interface SimulationOutputs {
   lanceEmbutidoValor: number
   percentualParcela: number
   parcContem: number
-  
+
 }
 
 const L16_CONST = 0.000599
