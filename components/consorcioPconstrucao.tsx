@@ -403,7 +403,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                             </div>
 
                             {/* Contemplação */}
-                            <div className="space-y-2 w-130">
+                            <div className="space-y-2 w-84">
                                 <Label htmlFor="contemplacao">Contemplação (mês)</Label>
                                 <Input
                                     id="contemplacao"

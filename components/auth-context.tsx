@@ -63,33 +63,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    // Login fictício para ambiente sem backend:
-    // se usar estas credenciais, não chama API e cria um usuário mockado.
-    if (email === "teste@reobote.com" && password === "123456") {
-      const mockUser: User = {
-        uid: "mock-user-1",
-        email,
-        profile: {
-          name: "Usuário de Teste",
-          role: UserRole.Admin,
-          teamId: "Geral",
-          photoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=TesteReobote`,
-        },
-      }
+    // Login fictício removido para produção.
 
-      try {
-        await fetch("/api/auth/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user: mockUser }),
-        })
-      } catch {
-        // ignora
-      }
-
-      setUser(mockUser)
-      return
-    }
 
     const response = await fetch("/api/auth/login", {
       method: "POST",
