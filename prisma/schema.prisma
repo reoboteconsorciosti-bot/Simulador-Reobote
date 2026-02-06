@@ -20,6 +20,18 @@ model User {
   updatedAt     DateTime     @updatedAt
   simulations   Simulation[]
   supervisedTeams TeamSupervisor[] @relation("SupervisorTeams")
+  pdfLogs       PdfGenerationLog[]
+}
+
+model PdfGenerationLog {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String   // "STANDARD" or "CONSTRUCTION"
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt])
 }
 
 model Team {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Calculator, CheckCircle, Dices, Hammer, SlidersHorizontal, Target } from "lucide-react"
+import { Calculator, CheckCircle, Dices, Hammer, SlidersHorizontal, Target, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -45,6 +45,8 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
 
     const [generatingPdfConstrucao, setGeneratingPdfConstrucao] = useState(false)
     const [showPdfSuccessModalConstrucao, setShowPdfSuccessModalConstrucao] = useState(false)
+    const [showPdfErrorModalConstrucao, setShowPdfErrorModalConstrucao] = useState(false)
+    const [pdfErrorMessageConstrucao, setPdfErrorMessageConstrucao] = useState("")
 
     const creditoNumber = parseCurrencyInput(valorCredito)
     // const lanceLivreValorNumber = parseCurrencyInput(lanceLivreValor) // Não usado mais diretamente como input
@@ -300,11 +302,13 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                 setShowPdfSuccessModalConstrucao(true)
             } else {
                 const err = await res.json().catch(() => ({}))
-                alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
+                setPdfErrorMessageConstrucao(err.message || "Erro desconhecido ao gerar PDF. Tente novamente.")
+                setShowPdfErrorModalConstrucao(true)
             }
         } catch (error) {
             console.error(error)
-            alert("Erro de conexão ao tentar gerar o PDF.")
+            setPdfErrorMessageConstrucao("Erro de conexão ao tentar gerar o PDF. Verifique sua internet.")
+            setShowPdfErrorModalConstrucao(true)
         } finally {
             setGeneratingPdfConstrucao(false)
         }
