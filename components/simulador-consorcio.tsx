@@ -815,7 +815,7 @@ export function SimuladorConsorcio() {
         <div
           className={
             showResults
-              ? "lg:col-span-1 lg:sticky lg:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto overflow-x-hidden space-y-4"
+              ? "lg:col-span-1 lg:sticky lg:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto overflow-x-hidden space-y-4 z-50"
               : `w-full ${modoConstrucao ? "max-w-7xl" : "max-w-xl"} space-y-4`
           }
         >
@@ -980,7 +980,7 @@ export function SimuladorConsorcio() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="taxaAdmin">Taxa de Administração (%)</Label>
+                      <Label htmlFor="taxaAdmin">Taxa de Adm (%)</Label>
                       <Input
                         id="taxaAdmin"
                         type="number"

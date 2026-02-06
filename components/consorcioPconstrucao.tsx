@@ -362,7 +362,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
 
                             {/* Taxa */}
                             <div className="space-y-2">
-                                <Label htmlFor="taxa">Taxa (Valor Fixo/Mensal?)</Label>
+                                <Label htmlFor="taxa">Taxa Administrativa</Label>
                                 <Input
                                     id="taxa"
                                     type="number"
@@ -376,7 +376,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
 
                             {/* INCC */}
                             <div className="space-y-2">
-                                <Label htmlFor="incc">Índice Reajuste (INCC %)</Label>
+                                <Label htmlFor="incc">Reajuste (INCC %)</Label>
                                 <Input
                                     id="incc"
                                     type="number"
@@ -403,7 +403,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                             </div>
 
                             {/* Contemplação */}
-                            <div className="space-y-2 w-84">
+                            <div className="space-y-2 w-130">
                                 <Label htmlFor="contemplacao">Contemplação (mês)</Label>
                                 <Input
                                     id="contemplacao"

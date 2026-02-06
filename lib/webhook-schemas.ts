@@ -1,0 +1,81 @@
+import { z } from "zod"
+
+export const proposalSchema = z.object({
+    nome: z.string().min(1, "Nome é obrigatório"),
+    consultor: z.string().min(1, "Consultor é obrigatório"),
+    credIndic: z.string(),
+    credDisp: z.string(),
+    saDev: z.string(),
+    praTotal: z.number().int().nonnegative(),
+    praPos: z.number().int().nonnegative(),
+    vParcaPag: z.string(),
+    vParcNorm: z.string(),
+    taxaAdm: z.string(),
+    percLanceOf: z.string(),
+    vLanceOf: z.string(),
+    percLanceEmb: z.string(),
+    vLanceEmb: z.string(),
+    perRecPro: z.string(),
+    vRecPro: z.string(),
+    parcContem: z.number().int().nonnegative(),
+    dataSimulacao: z.string(),
+    tipoBem: z.string(),
+})
+
+export const proposalConstrucaoSchema = z.object({
+    nome: z.string().min(1, "Nome é obrigatório"),
+    consultor: z.string().min(1, "Consultor é obrigatório"),
+    credIndic: z.string(),
+    credAtualizado: z.string(),
+    credDisp: z.string(),
+    prazoMeses: z.number().int().nonnegative(),
+    contemplacaoMes: z.number().int().nonnegative(),
+    parcelaIntegral: z.string(),
+    novaParcela: z.string(),
+    saldoDevedor: z.string(),
+    valorLanceTotal: z.string(),
+    valorLanceEmbutido: z.string(),
+    valorLancePago: z.string(),
+    modoContemplacao: z.string(),
+    planoReducao: z.string(),
+    seguroPrestamista: z.string(),
+    formaAbatimento: z.string(),
+    valorizacaoPercent: z.string(),
+    valorizacaoReal: z.string(),
+    creditoComValorizacao: z.string(),
+    tipoBem: z.string(),
+    // Compatibility Fields (Aliases for Standard Simulator)
+    praTotal: z.number().int().nonnegative().optional(),
+    saDev: z.string().optional(),
+    vParcNorm: z.string().optional(),
+    vParcaPag: z.string().optional(),
+
+    // Extended Compatibility
+    praPos: z.number().optional(),
+    taxaAdm: z.string().optional(),
+    percLanceOf: z.string().optional(),
+    vLanceOf: z.string().optional(),
+    percLanceEmb: z.string().optional(),
+    vLanceEmb: z.string().optional(),
+    perRecPro: z.string().optional(),
+    vRecPro: z.string().optional(),
+    parcContem: z.number().optional(),
+    dataSimulacao: z.string().optional(),
+
+    // Investment Fields
+    anos: z.string().optional(),
+    porcValorizImo: z.string().optional(),
+    valoriz: z.string().optional(),
+    porcRenda: z.string().optional(),
+    rendaAlug: z.string().optional(),
+    lucroRenda: z.string().optional(),
+    praRestan: z.string().optional(),
+    rentab: z.string().optional(),
+    porcValAnual: z.string().optional(),
+    valFinaImov: z.string().optional(),
+    valorRentab: z.string().optional(),
+    rendaPass: z.string().optional(),
+})
+
+export type ProposalPayload = z.infer<typeof proposalSchema>
+export type ProposalConstrucaoPayload = z.infer<typeof proposalConstrucaoSchema>
