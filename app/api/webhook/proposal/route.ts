@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { proposalSchema } from "@/lib/webhook-schemas"
 import { getCurrentUser } from "@/lib/server-auth"
+import { checkRateLimitAndQuota, logPdfGeneration } from "@/lib/rate-limit"
 
-const WEBHOOK_URL = "https://hook.us2.make.com/t9xuuylfl858jukotc2jam5ny2vd7dfd"
+const WEBHOOK_URL_PADRAO = process.env.WEBHOOK_URL_PADRAO
 const TIMEOUT_MS = 15000 // 15 seconds
 
 export async function POST(request: Request) {
@@ -12,6 +13,17 @@ export async function POST(request: Request) {
         const user = await getCurrentUser()
         if (!user) {
             return NextResponse.json({ message: "Não autorizado" }, { status: 401 })
+        }
+
+        // Security Check: Rate Limit & Quota
+        const securityCheck = await checkRateLimitAndQuota(user.uid)
+        if (!securityCheck.success) {
+            if (securityCheck.error === "RATE_LIMIT") {
+                return NextResponse.json({ message: "Aguarde 5 segundos entre gerações de PDF." }, { status: 429 })
+            }
+            if (securityCheck.error === "QUOTA_EXCEEDED") {
+                return NextResponse.json({ message: "Limite diário de 30 PDFs atingido." }, { status: 429 })
+            }
         }
 
         const body = await request.json()
@@ -29,11 +41,16 @@ export async function POST(request: Request) {
             )
         }
 
+        if (!WEBHOOK_URL_PADRAO) {
+            console.error("WEBHOOK_URL_PADRAO is not defined")
+            return NextResponse.json({ message: "Erro de configuração do servidor." }, { status: 500 })
+        }
+
         controller = new AbortController()
         const timeoutId = setTimeout(() => controller?.abort(), TIMEOUT_MS)
 
         try {
-            const response = await fetch(WEBHOOK_URL, {
+            const response = await fetch(WEBHOOK_URL_PADRAO, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -45,15 +62,14 @@ export async function POST(request: Request) {
             clearTimeout(timeoutId)
 
             if (!response.ok) {
-                console.error("Webhook error:", response.status, await response.text())
-                return NextResponse.json(
-                    { message: "Erro ao comunicar com o serviço de geração de PDF." },
-                    { status: 502 }
-                )
+                console.error(`Webhook error: ${response.status} ${response.statusText}`)
+                return NextResponse.json({ message: "Erro ao comunicar com serviço de PDF." }, { status: 502 })
             }
 
-            const responseText = await response.text()
-            return NextResponse.json({ success: true, upstream: responseText })
+            // Log successful generation for quota tracking
+            await logPdfGeneration(user.uid, "STANDARD")
+
+            return NextResponse.json({ success: true })
 
         } catch (fetchError: unknown) {
             clearTimeout(timeoutId)

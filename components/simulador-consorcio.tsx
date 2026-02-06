@@ -78,6 +78,7 @@ export function SimuladorConsorcio() {
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [showPdfSuccessModal, setShowPdfSuccessModal] = useState(false)
   const [showPdfErrorModal, setShowPdfErrorModal] = useState(false)
+  const [pdfErrorMessage, setPdfErrorMessage] = useState("")
   const [modoConstrucao, setModoConstrucao] = useState(false)
 
   const [loadedOutputs, setLoadedOutputs] = useState<{
@@ -537,6 +538,7 @@ export function SimuladorConsorcio() {
 
   const handleGeneratePdf = async () => {
     if (!simulacaoOficial) {
+      setPdfErrorMessage("Por favor, calcule a simulação oficial antes de gerar o PDF.")
       setShowPdfErrorModal(true)
       return
     }
@@ -561,11 +563,13 @@ export function SimuladorConsorcio() {
         setShowPdfSuccessModal(true)
       } else {
         const err = await res.json().catch(() => ({}))
-        alert(`Erro ao gerar PDF: ${err.message || "Tente novamente."}`)
+        setPdfErrorMessage(err.message || "Erro desconhecido ao gerar PDF. Tente novamente.")
+        setShowPdfErrorModal(true)
       }
     } catch (error) {
       console.error(error)
-      alert("Erro de conexão ao tentar gerar o PDF.")
+      setPdfErrorMessage("Erro de conexão ao tentar gerar o PDF. Verifique sua internet.")
+      setShowPdfErrorModal(true)
     } finally {
       setGeneratingPdf(false)
     }
@@ -1955,8 +1959,8 @@ export function SimuladorConsorcio() {
                 </div>
 
                 <h3 className="text-lg font-semibold text-foreground">Atenção</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Por favor, calcule a simulação oficial antes de gerar o PDF.
+                <p className="mt-2 text-sm text-muted-foreground text-center">
+                  {pdfErrorMessage}
                 </p>
 
                 <Button

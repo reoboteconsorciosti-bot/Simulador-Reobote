@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { proposalConstrucaoSchema } from "@/lib/webhook-schemas"
 import { getCurrentUser } from "@/lib/server-auth"
+import { checkRateLimitAndQuota, logPdfGeneration } from "@/lib/rate-limit"
 
 const WEBHOOK_URL =
   process.env.WEBHOOK_URL_CONSTRUCAO ||
@@ -15,6 +16,17 @@ export async function POST(request: Request) {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ message: "Não autorizado" }, { status: 401 })
+    }
+
+    // Security Check: Rate Limit & Quota
+    const securityCheck = await checkRateLimitAndQuota(user.uid)
+    if (!securityCheck.success) {
+      if (securityCheck.error === "RATE_LIMIT") {
+        return NextResponse.json({ message: "Aguarde 5 segundos entre gerações de PDF." }, { status: 429 })
+      }
+      if (securityCheck.error === "QUOTA_EXCEEDED") {
+        return NextResponse.json({ message: "Limite diário de 30 PDFs atingido." }, { status: 429 })
+      }
     }
 
     const body = await request.json()
@@ -56,6 +68,10 @@ export async function POST(request: Request) {
       }
 
       const responseText = await response.text()
+
+      // Log successful generation for quota tracking
+      await logPdfGeneration(user.uid, "CONSTRUCTION")
+
       return NextResponse.json({ success: true, upstream: responseText })
 
     } catch (fetchError: unknown) {
