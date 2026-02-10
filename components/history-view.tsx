@@ -102,6 +102,7 @@ function isConsorcioSimulation(inputs: any, outputs: any) {
 export function HistoryView() {
   const { user } = useAuth()
   const [items, setItems] = useState<SimulationItem[]>([])
+  const [filterType, setFilterType] = useState<"ALL" | "CONSTRUCTION">("ALL")
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -114,15 +115,21 @@ export function HistoryView() {
   const canSeeOwnerColumn =
     user?.profile.role === UserRole.Admin || user?.profile.role === UserRole.Gerente || user?.profile.role === UserRole.Supervisor
 
-  const load = async (mode: "reset" | "more") => {
+  const load = async (mode: "reset" | "more", typeOverride?: "ALL" | "CONSTRUCTION") => {
     if (loading) return
     setError(null)
     setLoading(true)
 
     try {
+      const type = typeOverride ?? filterType
       const params = new URLSearchParams()
       // modo ilimitado: sempre traz todo o histórico disponível para o usuário
       params.set("take", "all")
+
+      if (type === "CONSTRUCTION") {
+        params.set("type", "CONSTRUCTION")
+      }
+
       // em modo ilimitado, cursor deixa de fazer sentido; ignoramos nextCursor aqui
 
       const res = await fetch(`/api/simulations?${params.toString()}`, { cache: "no-store" })
@@ -143,6 +150,12 @@ export function HistoryView() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const toggleFilterType = () => {
+    const newType = filterType === "ALL" ? "CONSTRUCTION" : "ALL"
+    setFilterType(newType)
+    load("reset", newType)
   }
 
   useEffect(() => {
@@ -361,6 +374,17 @@ export function HistoryView() {
           />
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleFilterType}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${filterType === "CONSTRUCTION"
+                ? "bg-amber-100 text-amber-700 border border-amber-200"
+                : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                }`}
+            >
+              Histórico Construção
+            </button>
+
             <button
               type="button"
               onClick={openConfirmClear}

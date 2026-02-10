@@ -8,14 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Calculator, CreditCard, TrendingUp, Wallet, X, Check, CheckCircle, BarChart3, Target, AlertCircle, Trash2 } from "lucide-react"
+import { Calculator, CreditCard, TrendingUp, Wallet, X, Check, CheckCircle, BarChart3, Target, AlertCircle, Trash2, FileText } from "lucide-react"
 import { ComparisonResults } from "@/components/comparison-results"
 import { useAuth } from "@/components/auth-context"
 import { formatCurrency } from "@/lib/formatters"
 import { calculateSimulation, type SimulationInputs, type SimulationOutputs } from "@/lib/calculate-simulation"
 import { gerarPdfPadrao } from "@/lib/gerar-pdf-padrao"
+import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
 import { ConsorcioPConstrucao } from "./consorcioPconstrucao"
 import { Hammer, Logs } from "lucide-react"
+import { ResultsModal } from "@/components/results-modal"
 
 // Helpers para lidar com campos monetários em formato brasileiro ("120.000,00")
 const parseCurrencyInput = (value: string): number => {
@@ -72,6 +74,11 @@ const SIMULATOR_STORAGE_KEY = "sim-pro-simulator-state"
 
 export function SimuladorConsorcio() {
   const [resultadosConstrucao, setResultadosConstrucao] = useState<any>(null)
+  const [pdfPayloadConstrucao, setPdfPayloadConstrucao] = useState<any>(null)
+  const [generatingPdfConstrucao, setGeneratingPdfConstrucao] = useState(false)
+  const [showPdfSuccessModalConstrucao, setShowPdfSuccessModalConstrucao] = useState(false)
+  const [pdfErrorMessageConstrucao, setPdfErrorMessageConstrucao] = useState("")
+  const [showPdfErrorModalConstrucao, setShowPdfErrorModalConstrucao] = useState(false)
 
   const { user } = useAuth()
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
@@ -246,7 +253,17 @@ export function SimuladorConsorcio() {
             : null,
       )
       setErrosObrigatorios({ valorBem: false, prazoMeses: false, taxaAdministracao: false })
-      setShowResults(true)
+
+      // Detecção e carregamento de Simulação de Construção
+      if (inputs.tipoBem === "construcao") {
+        setModoConstrucao(true)
+        setResultadosConstrucao(outputs)
+        setPdfPayloadConstrucao({ inputs, outputs })
+        setShowResults(true)
+      } else {
+        setModoConstrucao(false)
+        setShowResults(true)
+      }
     }
 
     window.addEventListener("sim-pro-load-simulation", handler)
@@ -533,7 +550,33 @@ export function SimuladorConsorcio() {
 
     // Reset defaults logic
     setTipoSimulacao("consorcio")
+    setModoConstrucao(false)
+    setResultadosConstrucao(null)
+    setPdfPayloadConstrucao(null)
     setResetKey(prev => prev + 1)
+  }
+
+  const handleGeneratePdfConstrucao = async () => {
+    if (!pdfPayloadConstrucao) return
+
+    try {
+      setGeneratingPdfConstrucao(true)
+      const res = await gerarPdfConstrucao(pdfPayloadConstrucao)
+
+      if (res.ok) {
+        setShowPdfSuccessModalConstrucao(true)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setPdfErrorMessageConstrucao(err.message || "Erro desconhecido ao gerar PDF. Tente novamente.")
+        setShowPdfErrorModalConstrucao(true)
+      }
+    } catch (error) {
+      console.error(error)
+      setPdfErrorMessageConstrucao("Erro de conexão ao tentar gerar o PDF. Verifique sua internet.")
+      setShowPdfErrorModalConstrucao(true)
+    } finally {
+      setGeneratingPdfConstrucao(false)
+    }
   }
 
   const handleGeneratePdf = async () => {
@@ -810,18 +853,10 @@ export function SimuladorConsorcio() {
       </div>
 
       <div
-        className={
-          showResults
-            ? "grid lg:grid-cols-3 gap-6"
-            : "flex min-h-[60vh] items-center justify-center"
-        }
+        className="flex min-h-[60vh] items-center justify-center p-4"
       >
         <div
-          className={
-            showResults
-              ? "lg:col-span-1 lg:sticky lg:top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto overflow-x-hidden space-y-4 z-50"
-              : `w-full ${modoConstrucao ? "max-w-7xl" : "max-w-xl"} space-y-4`
-          }
+          className={`w-full ${modoConstrucao ? "max-w-7xl" : "max-w-xl"} space-y-4`}
         >
           <div className="flex justify-between items-center mb-2 gap-2 w-full max-w-xl mx-auto">
             <Button
@@ -902,9 +937,15 @@ export function SimuladorConsorcio() {
           {modoConstrucao ? (
             <ConsorcioPConstrucao
               key={resetKey}
-              onSimular={(dados) => {
+              onSimular={(dados: any, pdfPayload: any) => {
                 setResultadosConstrucao(dados)
+                setPdfPayloadConstrucao(pdfPayload)
                 setShowResults(true)
+                // Salva no histórico automaticamente
+                void salvarSimulacao({
+                  inputs: pdfPayload.inputs,
+                  outputs: pdfPayload.outputs
+                })
               }}
               nomeCliente={nomeCliente}
               nomeConsultor={nomeConsultor}
@@ -1236,15 +1277,7 @@ export function SimuladorConsorcio() {
                       Calcular Simulação
                     </Button>
 
-                    <Button
-                      type="button"
-                      className="w-full bg-red-600 hover:bg-red-700 text-white"
-                      size="lg"
-                      onClick={handleGeneratePdf}
-                      disabled={generatingPdf}
-                    >
-                      {generatingPdf ? "Enviando..." : "Gerar PDF"}
-                    </Button>
+                    {/* Botão removido daqui e movido para o ResultsModal */}
                   </div>
                 )}
               </CardContent>
@@ -1252,158 +1285,455 @@ export function SimuladorConsorcio() {
           )}
         </div>
 
-        <AnimatePresence mode="popLayout">
-          {showResults && (
-            <motion.div
-              key="results"
-              layout="position"
-              ref={resultadosRef}
-              initial={{ opacity: 0, y: 80 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 80 }}
-              transition={{ duration: 0.45, ease: "easeInOut", type: "tween" }}
-              className={showResults ? "lg:col-span-2 space-y-6" : "space-y-6"}
-            >
-              <div className="grid md:grid-cols-2 gap-4">
-                {modoConstrucao && resultadosConstrucao ? (
-                  <>
-                    <motion.div
-                      layout
-                      initial={{ opacity: 0, y: 200 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.45, ease: "easeOut" }}
-                      className="md:col-span-2"
-                    >
-                      <Card className="bg-primary text-primary-foreground">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base font-medium flex items-center gap-2">
-                            <Hammer className="w-5 h-5" />
-                            <span>
-                              {(nomeCliente && nomeCliente.trim()) || "Cliente"}, esta é a simulação para sua Construção.
-                            </span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold">
-                                <span className="min-w-0 break-words">{formatCurrency(resultadosConstrucao.parcelaIntegral)}</span>
-                                <span className="whitespace-nowrap">/mês</span>
-                              </div>
-                              <p className="text-sm text-primary-foreground/80">
-                                Parcela Integral
-                              </p>
-                            </div>
-                            <div className="min-w-0 xl:text-right">
-                              <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold xl:justify-end">
-                                <span className="min-w-0 break-words">{formatCurrency(resultadosConstrucao.novaParcela)}</span>
-                                <span className="whitespace-nowrap">/mês</span>
-                              </div>
-                              <p className="text-sm text-primary-foreground/80">
-                                Nova Parcela Recalculada ({resultadosConstrucao.prazoRestante}x)
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-primary-foreground/80">
-                            Custo total estimado (atualizado): {formatCurrency(resultadosConstrucao.custoTotal)}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-
-                    <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
-                      <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
-                        <div className="space-y-1">
-                          <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                            Saldo Devedor Atualizado
-                          </p>
-                          <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
-                            {formatCurrency(resultadosConstrucao.saldoDevedor)}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                            Qtd Parcelas Pagas
-                          </p>
-                          <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
-                            {resultadosConstrucao.qtdParcelasPagas}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                            Parcelas a Pagar
-                          </p>
-                          <p className="text-emerald-900/90 text-sm md:text-base">
-                            <span className="font-semibold text-emerald-900">
-                              {resultadosConstrucao.parcelasAPagarQtd}x
-                            </span>
-                            {" "}de{" "}
-                            <span className="font-semibold text-emerald-900">
-                              {formatCurrency(resultadosConstrucao.novaParcela)}
-                            </span>
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                            Crédito Atu. Contemplação
-                          </p>
-                          <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
-                            {formatCurrency(resultadosConstrucao.creditoAtualizado)}
-                          </p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                            Status Contemplação
-                          </p>
-                          <p className="text-emerald-900/90 text-sm md:text-base font-semibold">
-                            Prevista em {resultadosConstrucao.contemplacaoMes} meses ({
-                              resultadosConstrucao.tipoReajuste === "anual" ? "reajuste anual" : "reajuste semestral"
-                            })
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-
-
-                    {resultadosConstrucao.modoContemplacao !== "sorteio" && (
-                      <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
-                        <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
-                          <div className="space-y-1">
-                            <p className="font-semibold text-sky-900">Lance Ofertado Total</p>
-                            <p className="text-base md:text-xl font-extrabold text-sky-900">
-                              {formatCurrency(resultadosConstrucao.valorLanceTotal)}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="font-semibold text-sky-900">Lance Embutido</p>
-                            <p className="text-base md:text-xl font-extrabold text-sky-900">
-                              {formatCurrency(resultadosConstrucao.valorLanceEmbutido)}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <p className="font-semibold text-sky-900">Lance Pago em Dinheiro</p>
-                            <p className="text-base md:text-xl font-extrabold text-sky-900">
-                              {formatCurrency(resultadosConstrucao.valorLancePago)}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
-
-                    <Card className="bg-muted">
+        <ResultsModal isOpen={showResults} onClose={() => setShowResults(false)}>
+          <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-4">
+              {modoConstrucao && resultadosConstrucao ? (
+                <>
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: 200 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    className="md:col-span-2"
+                  >
+                    <Card className="bg-primary text-primary-foreground">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                          <Wallet className="w-4 h-4" />Comparativo Investimento
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <Hammer className="w-5 h-5" />
+                          <span>
+                            {(nomeCliente && nomeCliente.trim()) || "Cliente"}, esta é a simulação para sua Construção.
+                          </span>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-xl font-bold mb-1">CDB (1% a.m.)</div>
-                        <p className="text-xs text-muted-foreground">Valor final projetado superior ao custo da construção.</p>
+                        <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold">
+                              <span className="min-w-0 break-words">{formatCurrency(resultadosConstrucao.parcelaIntegral)}</span>
+                              <span className="whitespace-nowrap">/mês</span>
+                            </div>
+                            <p className="text-sm text-primary-foreground/80">
+                              Parcela Integral
+                            </p>
+                          </div>
+                          <div className="min-w-0 xl:text-right">
+                            <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold xl:justify-end">
+                              <span className="min-w-0 break-words">{formatCurrency(resultadosConstrucao.novaParcela)}</span>
+                              <span className="whitespace-nowrap">/mês</span>
+                            </div>
+                            <p className="text-sm text-primary-foreground/80">
+                              Nova Parcela Recalculada ({resultadosConstrucao.prazoRestante}x)
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-primary-foreground/80">
+                          Custo total estimado (atualizado): {formatCurrency(resultadosConstrucao.custoTotal)}
+                        </p>
                       </CardContent>
                     </Card>
+                  </motion.div>
 
+                  <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
+                    <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
+                      <div className="space-y-1">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                          Saldo Devedor Atualizado
+                        </p>
+                        <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
+                          {formatCurrency(resultadosConstrucao.saldoDevedor)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                          Qtd Parcelas Pagas
+                        </p>
+                        <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
+                          {resultadosConstrucao.qtdParcelasPagas}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                          Parcelas a Pagar
+                        </p>
+                        <p className="text-emerald-900/90 text-sm md:text-base">
+                          <span className="font-semibold text-emerald-900">
+                            {resultadosConstrucao.parcelasAPagarQtd}x
+                          </span>
+                          {" "}de{" "}
+                          <span className="font-semibold text-emerald-900">
+                            {formatCurrency(resultadosConstrucao.novaParcela)}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                          Crédito Atu. Contemplação
+                        </p>
+                        <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
+                          {formatCurrency(resultadosConstrucao.creditoAtualizado)}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                          Status Contemplação
+                        </p>
+                        <p className="text-emerald-900/90 text-sm md:text-base font-semibold">
+                          Prevista em {resultadosConstrucao.contemplacaoMes} meses ({
+                            resultadosConstrucao.tipoReajuste === "anual" ? "reajuste anual" : "reajuste semestral"
+                          })
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+
+
+                  {resultadosConstrucao.modoContemplacao !== "sorteio" && (
+                    <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
+                      <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sky-900">Lance Ofertado Total</p>
+                          <p className="text-base md:text-xl font-extrabold text-sky-900">
+                            {formatCurrency(resultadosConstrucao.valorLanceTotal)}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sky-900">Lance Embutido</p>
+                          <p className="text-base md:text-xl font-extrabold text-sky-900">
+                            {formatCurrency(resultadosConstrucao.valorLanceEmbutido)}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-semibold text-sky-900">Lance Pago em Dinheiro</p>
+                          <p className="text-base md:text-xl font-extrabold text-sky-900">
+                            {formatCurrency(resultadosConstrucao.valorLancePago)}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+
+                  <Card className="bg-muted">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Wallet className="w-4 h-4" />Comparativo Investimento
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-xl font-bold mb-1">CDB (1% a.m.)</div>
+                      <p className="text-xs text-muted-foreground">Valor final projetado superior ao custo da construção.</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
+                        <TrendingUp className="w-4 h-4" />
+                        Crédito Disponível
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-1">
+                        <div className="text-2xl font-bold mb-1 text-foreground">
+                          {formatCurrency(resultadosConstrucao.creditoDisponivel)}
+                        </div>
+                        <p className="text-xs text-emerald-900/80 uppercase tracking-wide">
+                          Crédito Atualizado na Contemplação
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="md:col-span-2 pt-8 border-t border-emerald-100 mt-6">
+                    <div className="mb-6 flex items-center gap-3">
+                      <div className="h-10 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 rounded-full shadow-sm" />
+                      <div>
+                        <h3 className="text-xl font-bold text-emerald-950">Análise de Investimento</h3>
+                        <p className="text-xs text-emerald-600/80 uppercase tracking-widest font-semibold">Resultados da Etapa 2</p>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* 1. Lucro Líquido Mensal (Destaque Topo) */}
+                      <Card className="md:col-span-2 border-emerald-500/50 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-md relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-3 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
+                          <Wallet className="w-24 h-24 text-emerald-900" />
+                        </div>
+                        <CardContent className="py-6 flex flex-col items-center text-center justify-center h-full relative z-10">
+                          <p className="font-bold text-emerald-800 text-xs md:text-sm uppercase tracking-wider flex items-center justify-center gap-2 mb-1">
+                            <Wallet className="w-4 h-4" />
+                            Lucro Líquido Mensal
+                          </p>
+                          <p className="text-3xl md:text-5xl font-extrabold text-emerald-600">
+                            {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
+                          </p>
+                          <p className="text-xs text-emerald-600/70 mt-2 font-medium">
+                            (Renda Gerada - Nova Parcela)
+                          </p>
+                        </CardContent>
+                      </Card>
+
+                      {/* 2. Crédito com Valorização */}
+                      <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+                          <TrendingUp className="w-20 h-20 text-emerald-900" />
+                        </div>
+                        <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                          <div className="space-y-2">
+                            <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              Crédito com Valorização
+                            </p>
+                            <p className="text-xl md:text-3xl font-bold text-emerald-950">
+                              {formatCurrency(resultadosConstrucao.creditoComValorizacao ?? resultadosConstrucao.creditoAtualizado)}
+                            </p>
+                            {typeof resultadosConstrucao.valorizacaoReal === "number" && (
+                              <p className="text-[15px] text-emerald-600 font-medium tracking-wide">
+                                Valorização de {formatCurrency(resultadosConstrucao.valorizacaoReal)}
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* 3. Renda Mensal Gerada */}
+                      <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+                          <TrendingUp className="w-20 h-20 text-emerald-900" />
+                        </div>
+                        <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                          <div className="space-y-2">
+                            <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              Renda Mensal Gerada
+                            </p>
+                            <p className="text-xl md:text-3xl font-bold text-emerald-950">
+                              {formatCurrency(resultadosConstrucao.rendaMensalGerada)}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </>
+              ) : effectiveTipoSimulacao === "consorcio" ? (
+                <>
+                  <motion.div
+                    layout
+                    initial={{ opacity: 0, y: 200 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: "easeOut" }}
+                    className="md:col-span-2"
+                  >
+                    <Card className="bg-primary text-primary-foreground">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <CreditCard className="w-5 h-5" />
+                          <span>
+                            {(nomeCliente && nomeCliente.trim()) || "Cliente"}, aqui você faz a melhor escolha de consórcio
+                            para realizar o seu sonho.
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {simulacaoOficial ? (
+                          <>
+                            <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold">
+                                  <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.valorParcela)}</span>
+                                  <span className="whitespace-nowrap">/mês</span>
+                                </div>
+                                <p className="text-sm text-primary-foreground/80">
+                                  Parcela inicial antes da contemplação
+                                </p>
+                              </div>
+                              <div className="min-w-0 xl:text-right">
+                                <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold xl:justify-end">
+                                  <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.parcelasAPagarValor)}</span>
+                                  <span className="whitespace-nowrap">/mês</span>
+                                </div>
+                                <p className="text-sm text-primary-foreground/80">
+                                  Após contemplação ({simulacaoOficial.parcelasAPagarQtd}x)
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-xs text-primary-foreground/80">
+                              Total estimado do plano (aprox.): {formatCurrency(effectiveConsorcio.custoTotal)}
+                            </p>
+
+                            {/* Tempo de acumulação guardando a parcela do consórcio */}
+                            {(() => {
+                              const valorCartaTotal =
+                                typeof effectiveConsorcio?.valorBem === "number" && Number.isFinite(effectiveConsorcio.valorBem)
+                                  ? effectiveConsorcio.valorBem
+                                  : parseCurrencyInput(valorBem)
+
+                              const valorLanceEmbutido = simulacaoOficial.lanceEmbutidoValor
+                              const temLanceEmbutido = valorLanceEmbutido > 0
+
+                              const mesesCarta = calcularMesesAcumulacaoConsorcio(
+                                effectiveConsorcio.parcelaMensal,
+                                valorCartaTotal,
+                              )
+
+                              const mesesCreditoDisponivel = temLanceEmbutido
+                                ? calcularMesesAcumulacaoConsorcio(
+                                  effectiveConsorcio.parcelaMensal,
+                                  valorCartaTotal,
+                                  valorLanceEmbutido,
+                                )
+                                : 0
+
+                              if (!mesesCarta && !mesesCreditoDisponivel) return null
+
+                              return (
+                                <div
+                                  id="tempo-acumulacao-consorcio"
+                                  className="mt-3 rounded-md bg-primary-foreground/5 px-3 py-2 text-xs md:text-sm"
+                                >
+                                  <p className="font-semibold mb-1">Em quanto tempo sua parcela vira crédito?</p>
+                                  {mesesCarta ? (
+                                    <p>
+                                      Guardando mensalmente o valor da parcela do consórcio, em{" "}
+                                      <span className="font-semibold">{mesesCarta} meses</span> você acumularia o valor total do bem.
+                                    </p>
+                                  ) : null}
+                                  {temLanceEmbutido && mesesCreditoDisponivel ? (
+                                    <p className="mt-1">
+                                      Considerando o lance embutido, em{" "}
+                                      <span className="font-semibold">{mesesCreditoDisponivel} meses</span> você acumularia o valor do
+                                      crédito disponível.
+                                    </p>
+                                  ) : null}
+                                </div>
+                              )
+                            })()}
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-4xl font-bold mb-2">{formatCurrency(effectiveConsorcio.parcelaMensal)}/mês</div>
+                            <p className="text-sm text-primary-foreground/80">
+                              Total: {formatCurrency(effectiveConsorcio.custoTotal)}
+                            </p>
+                          </>
+                        )}
+                        {effectiveConsorcio.valorLance > 0 && (
+                          <div className="mt-2 pt-2 border-t border-primary-foreground/20 space-y-1">
+                            {effectiveConsorcio.tipoLance === "livre" && (
+                              <p className="text-sm text-primary-foreground/90">
+                                Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
+                              </p>
+                            )}
+                            {effectiveConsorcio.tipoLance === "embutido" && (
+                              <p className="text-sm text-primary-foreground/90">
+                                Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
+                              </p>
+                            )}
+                            {effectiveConsorcio.tipoLance === "ambos" && (
+                              <>
+                                <p className="text-sm text-primary-foreground/90">
+                                  Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
+                                </p>
+                                <p className="text-sm text-primary-foreground/90">
+                                  Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+
+                  {simulacaoOficial && (
+                    <>
+                      <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
+                        <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                              Saldo Devedor
+                            </p>
+                            <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
+                              {formatCurrency(simulacaoOficial.saldoDevedor)}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                              Qtd Parcelas Pagas
+                            </p>
+                            <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
+                              {simulacaoOficial.parcContem}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                              Parcelas a Pagar
+                            </p>
+                            <p className="text-emerald-900/90 text-sm md:text-base">
+                              <span className="font-semibold text-emerald-900">
+                                {simulacaoOficial.parcelasAPagarQtd}x
+                              </span>{" "}
+                              de
+                              {" "}
+                              <span className="font-semibold">
+                                {formatCurrency(simulacaoOficial.parcelasAPagarValor)}
+                              </span>
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
+                        <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sky-900">Lance Ofertado (R$)</p>
+                            <p className="text-base md:text-xl font-extrabold text-sky-900">
+                              {formatCurrency(simulacaoOficial.lanceOfertadoValor)}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sky-900">Lance Embutido (R$)</p>
+                            <p className="text-base md:text-xl font-extrabold text-sky-900">
+                              {formatCurrency(simulacaoOficial.lanceEmbutidoValor)}
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <p className="font-semibold text-sky-900">Lance Pago em Dinheiro (R$)</p>
+                            <p className="text-base md:text-xl font-extrabold text-sky-900">
+                              {formatCurrency(
+                                Math.max(
+                                  0,
+                                  simulacaoOficial.lanceOfertadoValor - simulacaoOficial.lanceEmbutidoValor,
+                                ),
+                              )}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  )}
+
+                  <Card className="bg-muted">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Wallet className="w-4 h-4" />À Vista (Poupança)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold mb-1">{formatCurrency(effectiveAVista.parcelaMensal)}/mês</div>
+                      <p className="text-xs text-muted-foreground">Total: {formatCurrency(effectiveAVista.custoTotal)}</p>
+                      <p className="text-xs text-amber-600 mt-1">⚠️ Requer muita disciplina</p>
+                    </CardContent>
+                  </Card>
+
+                  {simulacaoOficial && (
                     <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
                       <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
@@ -1414,507 +1744,215 @@ export function SimuladorConsorcio() {
                       <CardContent>
                         <div className="space-y-1">
                           <div className="text-2xl font-bold mb-1 text-foreground">
-                            {formatCurrency(resultadosConstrucao.creditoDisponivel)}
+                            {formatCurrency(simulacaoOficial.creditoDisponivel)}
                           </div>
                           <p className="text-xs text-emerald-900/80 uppercase tracking-wide">
-                            Crédito Atualizado na Contemplação
+                            Crédito Disponível
                           </p>
                         </div>
                       </CardContent>
                     </Card>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Card className="bg-secondary text-secondary-foreground md:col-span-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <CreditCard className="w-5 h-5" />
+                        Financiamento - Bem Imediato
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-4xl font-bold mb-2">{formatCurrency(effectiveFinanciamento.parcelaMensal)}/mês</div>
+                      <p className="text-sm text-secondary-foreground/80">
+                        Total: {formatCurrency(effectiveFinanciamento.custoTotal)}
+                      </p>
+                      <p className="text-sm text-red-600 mt-1">⚠️ Juros: {formatCurrency(effectiveFinanciamento.jurosTotal)}</p>
+                    </CardContent>
+                  </Card>
 
-                    <div className="md:col-span-2 pt-8 border-t border-emerald-100 mt-6">
-                      <div className="mb-6 flex items-center gap-3">
-                        <div className="h-10 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 rounded-full shadow-sm" />
-                        <div>
-                          <h3 className="text-xl font-bold text-emerald-950">Análise de Investimento</h3>
-                          <p className="text-xs text-emerald-600/80 uppercase tracking-widest font-semibold">Resultados da Etapa 2</p>
-                        </div>
-                      </div>
+                  <Card className="bg-muted">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm font-medium flex items-center gap-2">
+                        <Wallet className="w-4 h-4" />À Vista (Poupança)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold mb-1">{formatCurrency(effectiveAVista.parcelaMensal)}/mês</div>
+                      <p className="text-xs text-muted-foreground">Total: {formatCurrency(effectiveAVista.custoTotal)}</p>
+                      <p className="text-xs text-amber-600 mt-1">⚠️ Espera até o final</p>
+                    </CardContent>
+                  </Card>
 
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {/* 1. Lucro Líquido Mensal (Destaque Topo) */}
-                        <Card className="md:col-span-2 border-emerald-500/50 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-md relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-                          <div className="absolute top-0 right-0 p-3 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
-                            <Wallet className="w-24 h-24 text-emerald-900" />
-                          </div>
-                          <CardContent className="py-6 flex flex-col items-center text-center justify-center h-full relative z-10">
-                            <p className="font-bold text-emerald-800 text-xs md:text-sm uppercase tracking-wider flex items-center justify-center gap-2 mb-1">
-                              <Wallet className="w-4 h-4" />
-                              Lucro Líquido Mensal
-                            </p>
-                            <p className="text-3xl md:text-5xl font-extrabold text-emerald-600">
-                              {formatCurrency(resultadosConstrucao.rendaMensalAluguel)}
-                            </p>
-                            <p className="text-xs text-emerald-600/70 mt-2 font-medium">
-                              (Renda Gerada - Nova Parcela)
-                            </p>
-                          </CardContent>
-                        </Card>
-
-                        {/* 2. Crédito com Valorização */}
-                        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
-                          <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
-                            <TrendingUp className="w-20 h-20 text-emerald-900" />
-                          </div>
-                          <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
-                            <div className="space-y-2">
-                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                                <TrendingUp className="w-3 h-3" />
-                                Crédito com Valorização
-                              </p>
-                              <p className="text-xl md:text-3xl font-bold text-emerald-950">
-                                {formatCurrency(resultadosConstrucao.creditoComValorizacao ?? resultadosConstrucao.creditoAtualizado)}
-                              </p>
-                              {typeof resultadosConstrucao.valorizacaoReal === "number" && (
-                                <p className="text-[15px] text-emerald-600 font-medium tracking-wide">
-                                  Valorização de {formatCurrency(resultadosConstrucao.valorizacaoReal)}
-                                </p>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {/* 3. Renda Mensal Gerada */}
-                        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
-                          <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
-                            <TrendingUp className="w-20 h-20 text-emerald-900" />
-                          </div>
-                          <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
-                            <div className="space-y-2">
-                              <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                                <TrendingUp className="w-3 h-3" />
-                                Renda Mensal Gerada
-                              </p>
-                              <p className="text-xl md:text-3xl font-bold text-emerald-950">
-                                {formatCurrency(resultadosConstrucao.rendaMensalGerada)}
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  </>
-                ) : effectiveTipoSimulacao === "consorcio" ? (
-                  <>
-                    <motion.div
-                      layout
-                      initial={{ opacity: 0, y: 200 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.45, ease: "easeOut" }}
-                      className="md:col-span-2"
-                    >
-                      <Card className="bg-primary text-primary-foreground">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base font-medium flex items-center gap-2">
-                            <CreditCard className="w-5 h-5" />
-                            <span>
-                              {(nomeCliente && nomeCliente.trim()) || "Cliente"}, aqui você faz a melhor escolha de consórcio
-                              para realizar o seu sonho.
-                            </span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {simulacaoOficial ? (
-                            <>
-                              <div className="grid gap-6 items-baseline mb-2 xl:grid-cols-2">
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold">
-                                    <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.valorParcela)}</span>
-                                    <span className="whitespace-nowrap">/mês</span>
-                                  </div>
-                                  <p className="text-sm text-primary-foreground/80">
-                                    Parcela inicial antes da contemplação
-                                  </p>
-                                </div>
-                                <div className="min-w-0 xl:text-right">
-                                  <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0 text-3xl md:text-4xl font-bold xl:justify-end">
-                                    <span className="min-w-0 break-words">{formatCurrency(simulacaoOficial.parcelasAPagarValor)}</span>
-                                    <span className="whitespace-nowrap">/mês</span>
-                                  </div>
-                                  <p className="text-sm text-primary-foreground/80">
-                                    Após contemplação ({simulacaoOficial.parcelasAPagarQtd}x)
-                                  </p>
-                                </div>
-                              </div>
-                              <p className="text-xs text-primary-foreground/80">
-                                Total estimado do plano (aprox.): {formatCurrency(effectiveConsorcio.custoTotal)}
-                              </p>
-
-                              {/* Tempo de acumulação guardando a parcela do consórcio */}
-                              {(() => {
-                                const valorCartaTotal =
-                                  typeof effectiveConsorcio?.valorBem === "number" && Number.isFinite(effectiveConsorcio.valorBem)
-                                    ? effectiveConsorcio.valorBem
-                                    : parseCurrencyInput(valorBem)
-
-                                const valorLanceEmbutido = simulacaoOficial.lanceEmbutidoValor
-                                const temLanceEmbutido = valorLanceEmbutido > 0
-
-                                const mesesCarta = calcularMesesAcumulacaoConsorcio(
-                                  effectiveConsorcio.parcelaMensal,
-                                  valorCartaTotal,
-                                )
-
-                                const mesesCreditoDisponivel = temLanceEmbutido
-                                  ? calcularMesesAcumulacaoConsorcio(
-                                    effectiveConsorcio.parcelaMensal,
-                                    valorCartaTotal,
-                                    valorLanceEmbutido,
-                                  )
-                                  : 0
-
-                                if (!mesesCarta && !mesesCreditoDisponivel) return null
-
-                                return (
-                                  <div
-                                    id="tempo-acumulacao-consorcio"
-                                    className="mt-3 rounded-md bg-primary-foreground/5 px-3 py-2 text-xs md:text-sm"
-                                  >
-                                    <p className="font-semibold mb-1">Em quanto tempo sua parcela vira crédito?</p>
-                                    {mesesCarta ? (
-                                      <p>
-                                        Guardando mensalmente o valor da parcela do consórcio, em{" "}
-                                        <span className="font-semibold">{mesesCarta} meses</span> você acumularia o valor total do bem.
-                                      </p>
-                                    ) : null}
-                                    {temLanceEmbutido && mesesCreditoDisponivel ? (
-                                      <p className="mt-1">
-                                        Considerando o lance embutido, em{" "}
-                                        <span className="font-semibold">{mesesCreditoDisponivel} meses</span> você acumularia o valor do
-                                        crédito disponível.
-                                      </p>
-                                    ) : null}
-                                  </div>
-                                )
-                              })()}
-                            </>
-                          ) : (
-                            <>
-                              <div className="text-4xl font-bold mb-2">{formatCurrency(effectiveConsorcio.parcelaMensal)}/mês</div>
-                              <p className="text-sm text-primary-foreground/80">
-                                Total: {formatCurrency(effectiveConsorcio.custoTotal)}
-                              </p>
-                            </>
-                          )}
-                          {effectiveConsorcio.valorLance > 0 && (
-                            <div className="mt-2 pt-2 border-t border-primary-foreground/20 space-y-1">
-                              {effectiveConsorcio.tipoLance === "livre" && (
-                                <p className="text-sm text-primary-foreground/90">
-                                  Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
-                                </p>
-                              )}
-                              {effectiveConsorcio.tipoLance === "embutido" && (
-                                <p className="text-sm text-primary-foreground/90">
-                                  Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
-                                </p>
-                              )}
-                              {effectiveConsorcio.tipoLance === "ambos" && (
-                                <>
-                                  <p className="text-sm text-primary-foreground/90">
-                                    Lance Livre: {formatCurrency(effectiveConsorcio.valorLanceLivre)}
-                                  </p>
-                                  <p className="text-sm text-primary-foreground/90">
-                                    Lance Embutido: {formatCurrency(effectiveConsorcio.valorLanceEmbutido)}
-                                  </p>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-
-                    {simulacaoOficial && (
-                      <>
-                        <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
-                          <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
-                            <div className="space-y-1">
-                              <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                                Saldo Devedor
-                              </p>
-                              <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
-                                {formatCurrency(simulacaoOficial.saldoDevedor)}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1">
-                              <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                                Qtd Parcelas Pagas
-                              </p>
-                              <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
-                                {simulacaoOficial.parcContem}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1">
-                              <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                                Parcelas a Pagar
-                              </p>
-                              <p className="text-emerald-900/90 text-sm md:text-base">
-                                <span className="font-semibold text-emerald-900">
-                                  {simulacaoOficial.parcelasAPagarQtd}x
-                                </span>{" "}
-                                de
-                                {" "}
-                                <span className="font-semibold">
-                                  {formatCurrency(simulacaoOficial.parcelasAPagarValor)}
-                                </span>
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
-                          <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
-                            <div className="space-y-1">
-                              <p className="font-semibold text-sky-900">Lance Ofertado (R$)</p>
-                              <p className="text-base md:text-xl font-extrabold text-sky-900">
-                                {formatCurrency(simulacaoOficial.lanceOfertadoValor)}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1">
-                              <p className="font-semibold text-sky-900">Lance Embutido (R$)</p>
-                              <p className="text-base md:text-xl font-extrabold text-sky-900">
-                                {formatCurrency(simulacaoOficial.lanceEmbutidoValor)}
-                              </p>
-                            </div>
-
-                            <div className="space-y-1">
-                              <p className="font-semibold text-sky-900">Lance Pago em Dinheiro (R$)</p>
-                              <p className="text-base md:text-xl font-extrabold text-sky-900">
-                                {formatCurrency(
-                                  Math.max(
-                                    0,
-                                    simulacaoOficial.lanceOfertadoValor - simulacaoOficial.lanceEmbutidoValor,
-                                  ),
-                                )}
-                              </p>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </>
-                    )}
-
-                    <Card className="bg-muted">
+                  {simulacaoOficial && (
+                    <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                          <Wallet className="w-4 h-4" />À Vista (Poupança)
+                        <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
+                          <TrendingUp className="w-4 h-4" />
+                          Crédito Disponível (Planilha)
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-2xl font-bold mb-1">{formatCurrency(effectiveAVista.parcelaMensal)}/mês</div>
-                        <p className="text-xs text-muted-foreground">Total: {formatCurrency(effectiveAVista.custoTotal)}</p>
-                        <p className="text-xs text-amber-600 mt-1">⚠️ Requer muita disciplina</p>
-                      </CardContent>
-                    </Card>
-
-                    {simulacaoOficial && (
-                      <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
-                            <TrendingUp className="w-4 h-4" />
+                        <div className="space-y-1">
+                          <p className="font-semibold text-emerald-900/80 text-[0.7rem] md:text-xs uppercase tracking-wide">
                             Crédito Disponível
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-1">
-                            <div className="text-2xl font-bold mb-1 text-foreground">
-                              {formatCurrency(simulacaoOficial.creditoDisponivel)}
-                            </div>
-                            <p className="text-xs text-emerald-900/80 uppercase tracking-wide">
-                              Crédito Disponível
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Card className="bg-secondary text-secondary-foreground md:col-span-2">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base font-medium flex items-center gap-2">
-                          <CreditCard className="w-5 h-5" />
-                          Financiamento - Bem Imediato
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-4xl font-bold mb-2">{formatCurrency(effectiveFinanciamento.parcelaMensal)}/mês</div>
-                        <p className="text-sm text-secondary-foreground/80">
-                          Total: {formatCurrency(effectiveFinanciamento.custoTotal)}
-                        </p>
-                        <p className="text-sm text-red-600 mt-1">⚠️ Juros: {formatCurrency(effectiveFinanciamento.jurosTotal)}</p>
+                          </p>
+                          <p className="inline-flex items-center rounded-full bg-gradient-to-br from-emerald-50/60 via-emerald-500/10 to-emerald-700/10 text-emerald-900 px-4 py-1.5 text-sm md:text-base font-extrabold shadow-md border border-emerald-300/70 ring-1 ring-emerald-800/10 backdrop-blur-md">
+                            {formatCurrency(simulacaoOficial.creditoDisponivel)}
+                          </p>
+                        </div>
                       </CardContent>
                     </Card>
+                  )}
+                </>
+              )
+              }
+            </div >
 
-                    <Card className="bg-muted">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                          <Wallet className="w-4 h-4" />À Vista (Poupança)
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold mb-1">{formatCurrency(effectiveAVista.parcelaMensal)}/mês</div>
-                        <p className="text-xs text-muted-foreground">Total: {formatCurrency(effectiveAVista.custoTotal)}</p>
-                        <p className="text-xs text-amber-600 mt-1">⚠️ Espera até o final</p>
-                      </CardContent>
-                    </Card>
+            {
+              !modoConstrucao && (
+                <>
+                  <ComparisonResults
+                    consorcio={{
+                      ...effectiveConsorcio,
+                      ...(typeof simulacaoOficial?.valorParcela === "number" && Number.isFinite(simulacaoOficial.valorParcela)
+                        ? { parcelaAntesContemplacao: simulacaoOficial.valorParcela }
+                        : {}),
+                    }}
+                    financiamento={effectiveFinanciamento}
+                    aVista={effectiveAVista}
+                    outros={effectiveOutros}
+                    tipoSimulacao={effectiveTipoSimulacao}
+                  />
 
-                    {simulacaoOficial && (
-                      <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
-                            <TrendingUp className="w-4 h-4" />
-                            Crédito Disponível (Planilha)
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-1">
-                            <p className="font-semibold text-emerald-900/80 text-[0.7rem] md:text-xs uppercase tracking-wide">
-                              Crédito Disponível
-                            </p>
-                            <p className="inline-flex items-center rounded-full bg-gradient-to-br from-emerald-50/60 via-emerald-500/10 to-emerald-700/10 text-emerald-900 px-4 py-1.5 text-sm md:text-base font-extrabold shadow-md border border-emerald-300/70 ring-1 ring-emerald-800/10 backdrop-blur-md">
-                              {formatCurrency(simulacaoOficial.creditoDisponivel)}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </>
-                )
-                }
-              </div >
-
-              {
-                !modoConstrucao && (
-                  <>
-                    <ComparisonResults
-                      consorcio={{
-                        ...effectiveConsorcio,
-                        ...(typeof simulacaoOficial?.valorParcela === "number" && Number.isFinite(simulacaoOficial.valorParcela)
-                          ? { parcelaAntesContemplacao: simulacaoOficial.valorParcela }
-                          : {}),
-                      }}
-                      financiamento={effectiveFinanciamento}
-                      aVista={effectiveAVista}
-                      outros={effectiveOutros}
-                      tipoSimulacao={effectiveTipoSimulacao}
-                    />
-
-                    {simulacaoOficial && (
-                      <Card className="mt-4">
-                        <CardHeader>
-                          <CardTitle className="text-base">Resumo da Simulação Oficial (Planilha)</CardTitle>
-                          <CardDescription>
-                            Valores calculados com a mesma lógica da planilha Servopa (calculateSimulation).
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="grid md:grid-cols-3 gap-4 text-sm">
-                          <div className="space-y-1">
-                            <p className="font-semibold">Parcela Inicial</p>
-                            <p>{formatCurrency(simulacaoOficial.valorParcela)}</p>
-                            <p className="text-xs text-muted-foreground">
-                              % da Parcela: {percentualParcelaOficial?.toFixed(4).replace(".", ",")}%
-                            </p>
-                          </div>
-
-                          <div className="space-y-1">
-                            <p className="font-semibold">Após Contemplação</p>
-                            <p>Saldo Devedor: {formatCurrency(simulacaoOficial.saldoDevedor)}</p>
-                            <p>
-                              Parcelas a Pagar: {simulacaoOficial.parcelasAPagarQtd}x de {" "}
-                              {formatCurrency(simulacaoOficial.parcelasAPagarValor)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Parcelas já consideradas pagas: {simulacaoOficial.parcContem}
-                            </p>
-                          </div>
-
-                          <div className="space-y-1">
-                            <p className="font-semibold">Lance e Crédito</p>
-                            <p>Lance Ofertado: {formatCurrency(simulacaoOficial.lanceOfertadoValor)}</p>
-                            <p>Lance Embutido: {formatCurrency(simulacaoOficial.lanceEmbutidoValor)}</p>
-                            <p>Crédito Disponível: {formatCurrency(simulacaoOficial.creditoDisponivel)}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-
+                  {simulacaoOficial && (
                     <Card className="mt-4">
                       <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <TrendingUp className="w-4 h-4" />
-                          Rentabilidade se você NÃO usar a carta de crédito
-                        </CardTitle>
+                        <CardTitle className="text-base">Resumo da Simulação Oficial (Planilha)</CardTitle>
                         <CardDescription>
-                          Compare deixar o valor da carta de crédito parado no consórcio com investir o mesmo valor em CDB ou
-                          poupança.
+                          Valores calculados com a mesma lógica da planilha Servopa (calculateSimulation).
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="grid md:grid-cols-3 gap-4 text-sm">
                         <div className="space-y-1">
-                          <p className="font-semibold">Carta de Crédito (não utilizada)</p>
-                          <p>
-                            Valor inicial: {formatCurrency(valorCarta)}
-                          </p>
-                          <p>
-                            Valor ao final: {formatCurrency(cartaParada.valorFinal)}
-                          </p>
-                          <p className="text-emerald-700">
-                            Ganho: {formatCurrency(cartaParada.ganho)}
-                          </p>
+                          <p className="font-semibold">Parcela Inicial</p>
+                          <p>{formatCurrency(simulacaoOficial.valorParcela)}</p>
                           <p className="text-xs text-muted-foreground">
-                            Taxa considerada: {(TAXA_CARTA_CREDITO_PADRAO).toFixed(2)}% a.m.
+                            % da Parcela: {percentualParcelaOficial?.toFixed(4).replace(".", ",")}%
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <p className="font-semibold">Investindo em CDB</p>
+                          <p className="font-semibold">Após Contemplação</p>
+                          <p>Saldo Devedor: {formatCurrency(simulacaoOficial.saldoDevedor)}</p>
                           <p>
-                            Valor inicial: {formatCurrency(valorCarta)}
-                          </p>
-                          <p>
-                            Valor ao final: {formatCurrency(investimentoCdb.valorFinal)}
-                          </p>
-                          <p className="text-emerald-700">
-                            Ganho: {formatCurrency(investimentoCdb.ganho)}
+                            Parcelas a Pagar: {simulacaoOficial.parcelasAPagarQtd}x de {" "}
+                            {formatCurrency(simulacaoOficial.parcelasAPagarValor)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Taxa considerada: {(TAXA_CDB_PADRAO).toFixed(2)}% a.m.
+                            Parcelas já consideradas pagas: {simulacaoOficial.parcContem}
                           </p>
                         </div>
 
                         <div className="space-y-1">
-                          <p className="font-semibold">Investindo na Poupança</p>
-                          <p>
-                            Valor inicial: {formatCurrency(valorCarta)}
-                          </p>
-                          <p>
-                            Valor ao final: {formatCurrency(investimentoPoupanca.valorFinal)}
-                          </p>
-                          <p className="text-emerald-700">
-                            Ganho: {formatCurrency(investimentoPoupanca.ganho)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Taxa considerada: {(RENDIMENTO_POUPANCA_PADRAO).toFixed(2)}% a.m.
-                          </p>
+                          <p className="font-semibold">Lance e Crédito</p>
+                          <p>Lance Ofertado: {formatCurrency(simulacaoOficial.lanceOfertadoValor)}</p>
+                          <p>Lance Embutido: {formatCurrency(simulacaoOficial.lanceEmbutidoValor)}</p>
+                          <p>Crédito Disponível: {formatCurrency(simulacaoOficial.creditoDisponivel)}</p>
                         </div>
                       </CardContent>
                     </Card>
-                  </>
-                )
-              }
-            </motion.div >
-          )}
-        </AnimatePresence>
+                  )}
+
+                  <Card className="mt-4">
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4" />
+                        Rentabilidade se você NÃO usar a carta de crédito
+                      </CardTitle>
+                      <CardDescription>
+                        Compare deixar o valor da carta de crédito parado no consórcio com investir o mesmo valor em CDB ou
+                        poupança.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid md:grid-cols-3 gap-4 text-sm">
+                      <div className="space-y-1">
+                        <p className="font-semibold">Carta de Crédito (não utilizada)</p>
+                        <p>
+                          Valor inicial: {formatCurrency(valorCarta)}
+                        </p>
+                        <p>
+                          Valor ao final: {formatCurrency(cartaParada.valorFinal)}
+                        </p>
+                        <p className="text-emerald-700">
+                          Ganho: {formatCurrency(cartaParada.ganho)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Taxa considerada: {(TAXA_CARTA_CREDITO_PADRAO).toFixed(2)}% a.m.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="font-semibold">Investindo em CDB</p>
+                        <p>
+                          Valor inicial: {formatCurrency(valorCarta)}
+                        </p>
+                        <p>
+                          Valor ao final: {formatCurrency(investimentoCdb.valorFinal)}
+                        </p>
+                        <p className="text-emerald-700">
+                          Ganho: {formatCurrency(investimentoCdb.ganho)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Taxa considerada: {(TAXA_CDB_PADRAO).toFixed(2)}% a.m.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="font-semibold">Investindo na Poupança</p>
+                        <p>
+                          Valor inicial: {formatCurrency(valorCarta)}
+                        </p>
+                        <p>
+                          Valor ao final: {formatCurrency(investimentoPoupanca.valorFinal)}
+                        </p>
+                        <p className="text-emerald-700">
+                          Ganho: {formatCurrency(investimentoPoupanca.ganho)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Taxa considerada: {(RENDIMENTO_POUPANCA_PADRAO).toFixed(2)}% a.m.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              )
+            }
+            {/* Ação Principal no Modal */}
+            <div className="flex justify-center pt-8 pb-4">
+              <Button
+                type="button"
+                className="w-full md:w-full md:max-w-md bg-red-600 hover:bg-red-700 text-white shadow-xl shadow-red-900/20 text-lg h-14"
+                size="lg"
+                onClick={modoConstrucao ? handleGeneratePdfConstrucao : handleGeneratePdf}
+                disabled={modoConstrucao ? generatingPdfConstrucao : generatingPdf}
+              >
+                <FileText className="w-5 h-5 mr-2" />
+                {modoConstrucao
+                  ? (generatingPdfConstrucao ? "Gerando PDF..." : "Gerar PDF da Construção")
+                  : (generatingPdf ? "Gerando PDF..." : "Gerar PDF da Simulação")
+                }
+              </Button>
+            </div>
+          </div>
+        </ResultsModal>
       </div>
 
       {/* PDF Success Modal */}
       {
         showPdfSuccessModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
             <div
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               onClick={() => setShowPdfSuccessModal(false)}
@@ -1946,7 +1984,7 @@ export function SimuladorConsorcio() {
       {/* PDF Error/Info Modal */}
       {
         showPdfErrorModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
             <div
               className="absolute inset-0 bg-black/40 backdrop-blur-sm"
               onClick={() => setShowPdfErrorModal(false)}
@@ -1974,6 +2012,70 @@ export function SimuladorConsorcio() {
           </div>
         )
       }
-    </div >
+
+      {/* PDF Success Modal Construcao */}
+      {
+        showPdfSuccessModalConstrucao && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowPdfSuccessModalConstrucao(false)}
+              aria-hidden="true"
+            />
+            <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 rounded-full bg-green-100 p-3 text-green-600 dark:bg-green-900/30 dark:text-green-500">
+                  <CheckCircle className="h-8 w-8" />
+                </div>
+
+                <h3 className="text-lg font-semibold text-foreground">Solicitação Enviada!</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Solicitação enviada com sucesso! O PDF será gerado em instantes.
+                </p>
+
+                <Button
+                  className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => setShowPdfSuccessModalConstrucao(false)}
+                >
+                  Entendi
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* PDF Error/Info Modal Construcao */}
+      {
+        showPdfErrorModalConstrucao && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center px-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowPdfErrorModalConstrucao(false)}
+              aria-hidden="true"
+            />
+            <div className="relative w-full max-w-sm rounded-xl border border-border bg-background p-6 shadow-xl animate-in fade-in zoom-in duration-200">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 rounded-full bg-amber-100 p-3 text-amber-600 dark:bg-amber-900/30 dark:text-amber-500">
+                  <AlertCircle className="h-8 w-8" />
+                </div>
+
+                <h3 className="text-lg font-semibold text-foreground">Atenção (Construção)</h3>
+                <p className="mt-2 text-sm text-muted-foreground text-center">
+                  {pdfErrorMessageConstrucao}
+                </p>
+
+                <Button
+                  className="mt-6 w-full bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => setShowPdfErrorModalConstrucao(false)}
+                >
+                  Entendi
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div>
   )
 }

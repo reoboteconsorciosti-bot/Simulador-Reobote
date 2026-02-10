@@ -159,16 +159,16 @@ export async function DELETE(request: Request) {
         const before = store.length
         if (role === UserRole.Consultor) {
           const kept = store.filter((it) => it.userId !== user.uid)
-          ;(globalThis as any).__simulationsStore = kept
+            ; (globalThis as any).__simulationsStore = kept
           return NextResponse.json({ ok: true, deletedCount: before - kept.length, storage: "memory" })
         }
-        ;(globalThis as any).__simulationsStore = []
+        ; (globalThis as any).__simulationsStore = []
         return NextResponse.json({ ok: true, deletedCount: before, storage: "memory" })
       }
 
       const before = store.length
       const kept = store.filter((it) => it.id !== id)
-      ;(globalThis as any).__simulationsStore = kept
+        ; (globalThis as any).__simulationsStore = kept
       return NextResponse.json({ ok: true, deletedCount: before - kept.length, storage: "memory" })
     }
 
@@ -331,9 +331,24 @@ export async function GET(request: Request) {
     }
 
     let where: any = {}
+    let typeFilter: any = {}
+
+    // Filtro por tipo de construção (via JSON)
+    const typeParam = url.searchParams.get("type")
+    if (typeParam === "CONSTRUCTION") {
+      typeFilter = {
+        inputs: {
+          path: ["tipoBem"],
+          equals: "construcao"
+        }
+      }
+    }
 
     if (role === UserRole.Consultor) {
-      where = { userId: dbUserId ?? user.uid }
+      where = {
+        userId: dbUserId ?? user.uid,
+        ...typeFilter
+      }
     } else if (role === UserRole.Supervisor) {
       // Supervisor: vê apenas simulações da própria equipe (mesmo teamId que o supervisor)
       const supervisor = await prisma.user.findUnique({
@@ -360,10 +375,11 @@ export async function GET(request: Request) {
         user: {
           teamId: supervisorTeamId,
         },
+        ...typeFilter
       }
     } else {
       // Admin/Gerente: tudo
-      where = {}
+      where = { ...typeFilter }
     }
 
     const items = await prisma.simulation.findMany({
@@ -372,14 +388,14 @@ export async function GET(request: Request) {
       ...(take == null
         ? {}
         : {
-            take: take + 1,
-            ...(cursor
-              ? {
-                  cursor: { id: cursor },
-                  skip: 1,
-                }
-              : {}),
-          }),
+          take: take + 1,
+          ...(cursor
+            ? {
+              cursor: { id: cursor },
+              skip: 1,
+            }
+            : {}),
+        }),
       select: {
         id: true,
         createdAt: true,

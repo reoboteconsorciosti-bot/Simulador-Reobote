@@ -14,7 +14,7 @@ import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
 type ModoContemplacao = "sorteio" | "lance_fixo" | "lance_livre"
 
 interface ConsorcioPConstrucaoProps {
-    onSimular: (dados: ConstrucaoOutputs) => void
+    onSimular: (dados: ConstrucaoOutputs, pdfPayload: any) => void
     nomeCliente: string
     nomeConsultor: string
     tipoBem: "imovel" | "automovel"
@@ -253,7 +253,25 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
         try {
             const outputsComLance = getOutputsComLance()
             if (!outputsComLance) return
-            onSimular(outputsComLance)
+
+            const pdfPayload = {
+                inputs: {
+                    nomeCliente,
+                    nomeConsultor,
+                    credito: parseCurrencyInput(valorCredito),
+                    prazoMeses: Number(prazo),
+                    contemplacaoMes: Number(tempoContemplacao) || 0,
+                    modoContemplacao,
+                    planoReducao: planoLight,
+                    seguroPrestamista,
+                    formaAbatimento: diluirLance,
+                    valorizacaoPercent: valorizacaoBem,
+                    tipoBem: "construcao",
+                },
+                outputs: outputsComLance,
+            }
+
+            onSimular(outputsComLance, pdfPayload)
         } catch (error: any) {
             alert(error.message)
         }
@@ -760,15 +778,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                     Calcular Construção
                 </Button>
 
-                <Button
-                    type="button"
-                    className="w-full bg-red-600 hover:bg-red-700 text-white"
-                    size="lg"
-                    onClick={handleGerarPdfConstrucao}
-                    disabled={!canGeneratePdfConstrucao}
-                >
-                    {generatingPdfConstrucao ? "Enviando..." : "Gerar PDF da Construção"}
-                </Button>
+                {/* Botão de PDF removido daqui para o ResultsModal */}
 
             </div>
 
