@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { parseCurrencyInput } from "@/lib/formatters"
 import { calcularConstrucao, calcularCreditoAtualizado, calcularValorizacao, calcularRendaMensal, calcularRendaLiquidaMensal, type ConstrucaoInputs, type ConstrucaoOutputs } from "./calcConstrucao"
 import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
+import { calcularValorizacaoAnualComposta } from "@/lib/calcular-valorizacao-anual-composta"
 
 type ModoContemplacao = "sorteio" | "lance_fixo" | "lance_livre"
 
@@ -40,6 +41,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
     const [lanceLivrePercent, setLanceLivrePercent] = useState("")
     const [valorizacaoBem, setValorizacaoBem] = useState("")
     const [rendaMensalImovel, setRendaMensalImovel] = useState("")
+    const [valorizacaoAnual, setValorizacaoAnual] = useState("")
     const [reinvestimentoMensal, setReinvestimentoMensal] = useState("")
     const [reinvestimentoMensalSecundario, setReinvestimentoMensalSecundario] = useState("")
 
@@ -200,6 +202,14 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
         const valorizacaoRealCalc = calcularValorizacao(creditoPosEmbutido, Number(valorizacaoBem) || 0)
         const creditoComValorizacaoCalc = creditoPosEmbutido + valorizacaoRealCalc
 
+        const mesesRestantes = Math.max(0, inputs.prazo - (Number(tempoContemplacao) || 0))
+        const anosRestantes = Math.max(0, Math.floor(mesesRestantes / 12))
+        const { valorFinal: creditoComValorizacaoFinal, historico: historicoValorizacaoAnual } = calcularValorizacaoAnualComposta({
+            valorInicial: creditoComValorizacaoCalc,
+            percentualAnual: Number(valorizacaoAnual.toString().replace(",", ".")) || 0,
+            anos: anosRestantes,
+        })
+
         const rendaMensalGeradaCalc = calcularRendaMensal(
             creditoComValorizacaoCalc,
             Number(rendaMensalImovel) || 0
@@ -220,19 +230,15 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
             saldoDevedor: isLanceMode ? saldoDevedorComLance : outputs.saldoDevedor,
             valorizacaoReal: valorizacaoRealCalc,
             creditoComValorizacao: creditoComValorizacaoCalc,
+            creditoComValorizacaoFinal: creditoComValorizacaoFinal,
+            historicoValorizacaoAnual,
             rendaMensalImovel: Number(rendaMensalImovel) || 0,
             rendaMensalGerada: rendaMensalGeradaCalc,
             rendaMensalAluguel: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
             reinvestimentoMensal: calcularRendaLiquidaMensal(rendaMensalGeradaCalc, novaParcelaComPlanoESeguro),
-            modoContemplacao
+            modoContemplacao,
+            valorizacaoAnual: creditoComValorizacaoCalc * ((Number(valorizacaoAnual) || 0) / 100)
         }
-
-        setReinvestimentoMensal(
-            (outputsComLance.rendaMensalAluguel ?? 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            })
-        )
 
         return outputsComLance
     }
@@ -630,9 +636,9 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                                             value={diluirLance}
                                             onChange={(e) => setDiluirLance(e.target.value)}
                                         >
-                                            <option value="1">Sim (Abater Prazo)</option>
+                                            <option value="1">Sim (Abater Parcelas)</option>
                                             <option value="2">LUDC</option>
-                                            <option value="3">Não (Abater Parcelas)</option>
+                                            <option value="3">Não (Abater Prazo)</option>
                                         </select>
                                     </div>
 
@@ -736,6 +742,18 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                         </div>
 
                         <div className="space-y-2">
+                            <Label htmlFor="valorizacaoAnual">Valorização Anual do Imóvel (%)</Label>
+                            <Input
+                                id="valorizacaoAnual"
+                                type="number"
+                                step="0.1"
+                                value={valorizacaoAnual}
+                                onChange={(e) => setValorizacaoAnual(e.target.value)}
+                                placeholder="Ex: 6"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="rendaMensalImovel">Renda mensal do imóvel (%)</Label>
                             <Input
                                 id="rendaMensalImovel"
@@ -746,30 +764,8 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                                 placeholder="Ex: 0.5"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="reinvestimentoMensal">Reinvestimento Mensal (R$)</Label>
-                            <div className="flex items-center w-full rounded-md border border-input bg-transparent overflow-hidden focus-within:ring-1 focus-within:ring-ring">
-                                <Input
-                                    id="reinvestimentoMensal"
-                                    value={reinvestimentoMensal}
-                                    onChange={(e) => handleCurrencyChange(e.target.value, setReinvestimentoMensal)}
-                                    placeholder="0,00"
-                                    className="border-0 focus-visible:ring-0 rounded-none shadow-none h-9 px-3"
-                                    inputMode="numeric"
-                                />
 
-                                <div className="h-6 w-[1px] bg-border mx-1" />
-                                <Input
-                                    id="reinvestimentoMensalSecundario"
-                                    type="number"
-                                    step="0.1"
-                                    value={reinvestimentoMensalSecundario}
-                                    onChange={(e) => setReinvestimentoMensalSecundario(e.target.value)}
-                                    placeholder="Ex: 0.8"
-                                    className="border-0 focus-visible:ring-0 rounded-none shadow-none h-9 px-3 bg-slate-50/50"
-                                />
-                            </div>
-                        </div>
+
                     </CardContent>
                 </Card>
 

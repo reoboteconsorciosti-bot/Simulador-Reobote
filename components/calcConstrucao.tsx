@@ -33,6 +33,9 @@ export interface ConstrucaoOutputs {
     rendaMensalImovel?: number // Novo campo
     reinvestimentoMensal?: number // Novo campo
     modoContemplacao?: string // Novo campo
+    valorizacaoAnual?: number // Novo campo
+    creditoComValorizacaoFinal?: number // Novo campo
+    historicoValorizacaoAnual?: Array<{ ano: number; valor: number }> // Novo campo
     inputs: ConstrucaoInputs // Repassando inputs para referência
 }
 

@@ -80,6 +80,45 @@ export function SimuladorConsorcio() {
   const [pdfErrorMessageConstrucao, setPdfErrorMessageConstrucao] = useState("")
   const [showPdfErrorModalConstrucao, setShowPdfErrorModalConstrucao] = useState(false)
 
+  // State for manual reinvestment input (moved from ConsorcioPconstrucao)
+  const [manualReinvestimento, setManualReinvestimento] = useState("")
+  const [manualReinvestimentoSecundario, setManualReinvestimentoSecundario] = useState("")
+
+  // Sync manual reinvestment when results change
+  useEffect(() => {
+    if (resultadosConstrucao?.reinvestimentoMensal !== undefined) {
+      setManualReinvestimento(
+        resultadosConstrucao.reinvestimentoMensal.toLocaleString("pt-BR", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      )
+    }
+  }, [resultadosConstrucao?.reinvestimentoMensal])
+
+  const handleReinvestimentoChange = (value: string) => {
+    const numericValue = value.replace(/\D/g, "")
+    const floatValue = Number(numericValue) / 100
+    const formatted = floatValue.toLocaleString("pt-BR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+    setManualReinvestimento(formatted)
+
+    // Update results and pdf payload
+    if (resultadosConstrucao) {
+      const newResults = { ...resultadosConstrucao, reinvestimentoMensal: floatValue }
+      setResultadosConstrucao(newResults)
+
+      if (pdfPayloadConstrucao) {
+        setPdfPayloadConstrucao({
+          ...pdfPayloadConstrucao,
+          outputs: newResults
+        })
+      }
+    }
+  }
+
   const { user } = useAuth()
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
   const [generatingPdf, setGeneratingPdf] = useState(false)
@@ -1211,7 +1250,7 @@ export function SimuladorConsorcio() {
                           })
                           setValorBemFin(formatted)
                         }}
-                        placeholder="120.000,00"
+                        placeholder="100.000,00"
                       />
                     </div>
 
@@ -1336,24 +1375,24 @@ export function SimuladorConsorcio() {
 
                   <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
                     <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
-                      <div className="space-y-1">
-                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                      <div className="space-y-1 flex flex-col items-center text-center">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-xl uppercase tracking-wide">
                           Saldo Devedor Atualizado
                         </p>
                         <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
                           {formatCurrency(resultadosConstrucao.saldoDevedor)}
                         </p>
                       </div>
-                      <div className="space-y-1">
-                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                      <div className="space-y-1 flex flex-col items-center text-center">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-xl uppercase tracking-wide">
                           Qtd Parcelas Pagas
                         </p>
                         <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
                           {resultadosConstrucao.qtdParcelasPagas}
                         </p>
                       </div>
-                      <div className="space-y-1">
-                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
+                      <div className="space-y-1 flex flex-col items-center text-center">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-xl uppercase tracking-wide">
                           Parcelas a Pagar
                         </p>
                         <p className="text-emerald-900/90 text-sm md:text-base">
@@ -1366,20 +1405,9 @@ export function SimuladorConsorcio() {
                           </span>
                         </p>
                       </div>
-                      <div className="space-y-1">
-                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                          Crédito Atu. Contemplação
-                        </p>
-                        <p className="text-lg md:text-2xl font-bold text-emerald-900/90">
-                          {formatCurrency(resultadosConstrucao.creditoAtualizado)}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
-                          Status Contemplação
-                        </p>
-                        <p className="text-emerald-900/90 text-sm md:text-base font-semibold">
-                          Prevista em {resultadosConstrucao.contemplacaoMes} meses ({
+                      <div className="flex flex-wrap items-baseline gap-2 justify-center md:col-span-3">
+                        <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide whitespace-nowrap">
+                          Status Contemplação: Prevista em {resultadosConstrucao.contemplacaoMes} meses ({
                             resultadosConstrucao.tipoReajuste === "anual" ? "reajuste anual" : "reajuste semestral"
                           })
                         </p>
@@ -1413,36 +1441,21 @@ export function SimuladorConsorcio() {
                       </CardContent>
                     </Card>
                   )}
-
-
-                  <Card className="bg-muted">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Wallet className="w-4 h-4" />Comparativo Investimento
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-xl font-bold mb-1">CDB (1% a.m.)</div>
-                      <p className="text-xs text-muted-foreground">Valor final projetado superior ao custo da construção.</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
+                  <Card className="md:col-span-2 group relative overflow-hidden bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-md border-emerald-500/50 hover:shadow-lg transition-all duration-300">
+                    <div className="absolute top-0 right-0 p-3 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
+                      <TrendingUp className="w-24 h-24 text-emerald-900" />
+                    </div>
+                    <CardContent className="py-6 flex flex-col items-center text-center justify-center h-full relative z-10">
+                      <p className="font-bold text-emerald-800 text-xs md:text-sm uppercase tracking-wider flex items-center justify-center gap-2 mb-1">
                         <TrendingUp className="w-4 h-4" />
                         Crédito Disponível
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-1">
-                        <div className="text-2xl font-bold mb-1 text-foreground">
-                          {formatCurrency(resultadosConstrucao.creditoDisponivel)}
-                        </div>
-                        <p className="text-xs text-emerald-900/80 uppercase tracking-wide">
-                          Crédito Atualizado na Contemplação
-                        </p>
+                      </p>
+                      <div className="text-3xl md:text-5xl font-extrabold text-emerald-600">
+                        {formatCurrency(resultadosConstrucao.creditoDisponivel)}
                       </div>
+                      <p className="text-xs text-emerald-600/70 mt-2 font-medium uppercase tracking-wide">
+                        Crédito Atualizado na Contemplação
+                      </p>
                     </CardContent>
                   </Card>
 
@@ -1487,13 +1500,11 @@ export function SimuladorConsorcio() {
                               Crédito com Valorização
                             </p>
                             <p className="text-xl md:text-3xl font-bold text-emerald-950">
-                              {formatCurrency(resultadosConstrucao.creditoComValorizacao ?? resultadosConstrucao.creditoAtualizado)}
+                              {formatCurrency(
+                                resultadosConstrucao.creditoComValorizacao ??
+                                resultadosConstrucao.creditoAtualizado
+                              )}
                             </p>
-                            {typeof resultadosConstrucao.valorizacaoReal === "number" && (
-                              <p className="text-[15px] text-emerald-600 font-medium tracking-wide">
-                                Valorização de {formatCurrency(resultadosConstrucao.valorizacaoReal)}
-                              </p>
-                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -1511,6 +1522,85 @@ export function SimuladorConsorcio() {
                             </p>
                             <p className="text-xl md:text-3xl font-bold text-emerald-950">
                               {formatCurrency(resultadosConstrucao.rendaMensalGerada)}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* 4. Reinvestimento Mensal (Editável) */}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 pt-8 border-t border-emerald-100 mt-6">
+                    <div className="mb-6 flex items-center gap-3">
+                      <div className="h-10 w-1.5 bg-gradient-to-b from-emerald-500 to-emerald-600 rounded-full shadow-sm" />
+                      <div>
+                        <h3 className="text-xl font-bold text-emerald-950">Projeção de Renda</h3>
+                        <p className="text-xs text-emerald-600/80 uppercase tracking-widest font-semibold">Resultados da Etapa 3</p>
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2 relative overflow-hidden group transition-all duration-300">
+                      <div className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10 w-full">
+                        <div className="space-y-4 flex flex-col items-center text-center w-full">
+                          <p className="font-bold text-emerald-800 text-[10px] md:text-lg uppercase tracking-wider flex items-center justify-center gap-1">
+                            <TrendingUp className="w-7 h-6" />
+                            Reinvestimento Mensal (R$)
+                          </p>
+
+                          <div className="flex items-center w-full max-w-[300px] rounded-md border border-emerald-200 bg-white/50 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 shadow-sm mx-auto">
+                            <Input
+                              value={manualReinvestimento}
+                              onChange={(e) => handleReinvestimentoChange(e.target.value)}
+                              placeholder="0,00"
+                              className="border-0 focus-visible:ring-0 rounded-none shadow-none h-12 lg:h-16 px-3 text-center text-emerald-950 flex-1 min-w-0 bg-transparent text-xl lg:text-3xl"
+                            />
+                            <div className="h-8 lg:h-10 w-[2px] bg-emerald-200 mx-0" />
+                            <Input
+                              value={manualReinvestimentoSecundario}
+                              onChange={(e) => setManualReinvestimentoSecundario(e.target.value)}
+                              placeholder="%"
+                              type="number"
+                              step="0.1"
+                              className="border-0 focus-visible:ring-0 rounded-none shadow-none h-12 lg:h-16 px-2 text-center text-black-700 w-24 bg-emerald-50/30 text-xs lg:text-sm font-medium"
+                            />
+                          </div>
+
+                          <p className="text-[15px] text-emerald-600/70 font-medium tracking-wide uppercase">
+                            Valor Editável | Taxa
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <Card className="border-emerald-700/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                        <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+                          <TrendingUp className="w-20 h-20 text-emerald-900" />
+                        </div>
+                        <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
+                          <div className="space-y-2">
+                            <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              Valorização Final do Imóvel
+                            </p>
+                            <p className="text-xl md:text-3xl font-bold text-emerald-950">
+                              {formatCurrency(
+                                resultadosConstrucao.creditoComValorizacaoFinal ??
+                                resultadosConstrucao.creditoAtualizado
+                              )}
+                            </p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-grey-900/60 bg-gradient-to-br from-grey-50/50 to-grey-50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                        <CardContent>
+                          <div className="space-y-2">
+                            <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                              <TrendingUp className="w-6 h-6" />
+                              Investimento Acumulado
+                            </p>
+                            <p className="text-xl md:text-3xl font-bold text-emerald-950">
                             </p>
                           </div>
                         </CardContent>
