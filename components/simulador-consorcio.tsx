@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/formatters"
 import { calculateSimulation, type SimulationInputs, type SimulationOutputs } from "@/lib/calculate-simulation"
 import { gerarPdfPadrao } from "@/lib/gerar-pdf-padrao"
 import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
+import { simularInvestimentoComAportes } from "@/lib/simular-investimento-aportes"
 import { ConsorcioPConstrucao } from "./consorcioPconstrucao"
 import { Hammer, Logs } from "lucide-react"
 import { ResultsModal } from "@/components/results-modal"
@@ -82,7 +83,12 @@ export function SimuladorConsorcio() {
 
   // State for manual reinvestment input (moved from ConsorcioPconstrucao)
   const [manualReinvestimento, setManualReinvestimento] = useState("")
-  const [manualReinvestimentoSecundario, setManualReinvestimentoSecundario] = useState("")
+  const [manualReinvestimentoSecundario, setManualReinvestimentoSecundario] = useState("0,8")
+
+  const [aporteMensalInvest, setAporteMensalInvest] = useState<string>("")
+  const [taxaMensalInvest, setTaxaMensalInvest] = useState<string>("")
+  const [totalMesesInvest, setTotalMesesInvest] = useState<string>("")
+  const [mostrarHistoricoInvest, setMostrarHistoricoInvest] = useState(false)
 
   // Sync manual reinvestment when results change
   useEffect(() => {
@@ -117,6 +123,30 @@ export function SimuladorConsorcio() {
         })
       }
     }
+  }
+
+  const handleReinvestimentoTaxaChange = (value: string) => {
+    const cleaned = value.replace(/[^0-9,\.]/g, "")
+
+    const endsWithSep = /[,.]$/.test(cleaned)
+    const parts = cleaned.split(/[,.]/)
+
+    let intPart = parts[0] ?? ""
+    let decPart = parts[1] ?? ""
+
+    if (intPart === "" && (cleaned.startsWith(",") || cleaned.startsWith("."))) {
+      intPart = "0"
+    }
+
+    decPart = decPart.slice(0, 2)
+
+    if (endsWithSep) {
+      setManualReinvestimentoSecundario(`${intPart},`)
+      return
+    }
+
+    const formatted = decPart.length > 0 ? `${intPart},${decPart}` : intPart
+    setManualReinvestimentoSecundario(formatted)
   }
 
   const { user } = useAuth()
@@ -250,6 +280,7 @@ export function SimuladorConsorcio() {
       if (typeof inputs.entrada === "string") setEntrada(inputs.entrada)
 
       if (typeof inputs.planoLight === "string") setPlanoLight(inputs.planoLight)
+      else if (typeof inputs.planoReducao === "string") setPlanoLight(inputs.planoReducao)
       if (typeof inputs.seguroPrestamista === "string") setSeguroPrestamista(inputs.seguroPrestamista)
       if (typeof inputs.percentualOfertado === "string") setPercentualOfertado(inputs.percentualOfertado)
       if (typeof inputs.percentualEmbutido === "string") setPercentualEmbutido(inputs.percentualEmbutido)
@@ -576,6 +607,7 @@ export function SimuladorConsorcio() {
     setPercentualEmbutido("")
     setDiluirLance("1")
     setLanceNaAssembleia("")
+    setManualReinvestimentoSecundario("0,8")
 
     // Reset results/state
     setSimulacaoOficial(null)
@@ -600,7 +632,17 @@ export function SimuladorConsorcio() {
 
     try {
       setGeneratingPdfConstrucao(true)
-      const res = await gerarPdfConstrucao(pdfPayloadConstrucao)
+      const payloadToSend = {
+        ...pdfPayloadConstrucao,
+        inputs: {
+          ...pdfPayloadConstrucao.inputs,
+          valorRentab: investimentoAcumuladoConstrucao.valorFinal,
+          rendaPass: rendaPassivaMensalCalculada,
+          rentab: manualReinvestimentoSecundario,
+        },
+      }
+
+      const res = await gerarPdfConstrucao(payloadToSend)
 
       if (res.ok) {
         setShowPdfSuccessModalConstrucao(true)
@@ -867,6 +909,68 @@ export function SimuladorConsorcio() {
   const investimentoCdb = calcularInvestimentoComTaxa(valorCarta, prazoNumber, TAXA_CDB_PADRAO)
   const investimentoPoupanca = calcularInvestimentoComTaxa(valorCarta, prazoNumber, RENDIMENTO_POUPANCA_PADRAO)
 
+  const investimentoComAportes = useMemo(() => {
+    const aporteMensal = parseCurrencyInput(aporteMensalInvest)
+    const taxaMensal = Number((taxaMensalInvest || "").replace(/,/g, "."))
+    const totalMeses = Number(totalMesesInvest)
+
+    return simularInvestimentoComAportes({
+      aporteMensal,
+      taxaMensal,
+      totalMeses,
+      gerarHistorico: mostrarHistoricoInvest,
+    })
+  }, [aporteMensalInvest, taxaMensalInvest, totalMesesInvest, mostrarHistoricoInvest])
+
+  const taxaMensalInvestNumber = Number((taxaMensalInvest || "").replace(/,/g, "."))
+  const totalMesesInvestNumber = Number(totalMesesInvest)
+  const aporteMensalInvestNumber = parseCurrencyInput(aporteMensalInvest)
+  const taxaMensalInvestInvalida =
+    taxaMensalInvest.trim().length > 0 && (!Number.isFinite(taxaMensalInvestNumber) || taxaMensalInvestNumber < 0 || taxaMensalInvestNumber > 1)
+  const totalMesesInvestInvalido =
+    totalMesesInvest.trim().length > 0 && (!Number.isFinite(totalMesesInvestNumber) || totalMesesInvestNumber < 0)
+
+  const investimentoAcumuladoConstrucao = useMemo(() => {
+    const aporteMensal = parseCurrencyInput(manualReinvestimento)
+    const taxaPercent = Number((manualReinvestimentoSecundario || "").replace(/,/g, "."))
+    const taxaMensal = Number.isFinite(taxaPercent) ? taxaPercent / 100 : NaN
+    const totalMeses =
+      (resultadosConstrucao && typeof resultadosConstrucao.prazoRestante === "number"
+        ? resultadosConstrucao.prazoRestante
+        : Number(basePrazoMeses)) || 0
+
+    return simularInvestimentoComAportes({
+      aporteMensal,
+      taxaMensal,
+      totalMeses,
+      gerarHistorico: false,
+    })
+  }, [manualReinvestimento, manualReinvestimentoSecundario, resultadosConstrucao, basePrazoMeses])
+
+  const rendaPassivaMensalCalculada = useMemo(() => {
+    // 1. Taxa do Reinvestimento (Editável na tela de resultados)
+    const taxaInvestimentoPercent = Number((manualReinvestimentoSecundario || "").replace(/,/g, "."))
+    const taxaInvestimentoDecimal = Number.isFinite(taxaInvestimentoPercent) ? taxaInvestimentoPercent / 100 : 0
+
+    // 2. Taxa do Imóvel (Definida no formulário de construção)
+    const taxaImovelPercent = resultadosConstrucao?.rendaMensalImovel || 0
+    const taxaImovelDecimal = taxaImovelPercent / 100
+
+    // Cálculo separado dos rendimentos
+    const valorImovelFinal = resultadosConstrucao?.creditoComValorizacaoFinal || 0
+    const rendimentoImovel = valorImovelFinal * taxaImovelDecimal
+
+    const valorInvestimentoAcumulado = investimentoAcumuladoConstrucao.valorFinal
+    const rendimentoInvestimento = valorInvestimentoAcumulado * taxaInvestimentoDecimal
+
+    return rendimentoImovel + rendimentoInvestimento
+  }, [
+    investimentoAcumuladoConstrucao.valorFinal,
+    manualReinvestimentoSecundario,
+    resultadosConstrucao?.creditoComValorizacaoFinal,
+    resultadosConstrucao?.rendaMensalImovel
+  ])
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <div className="text-center mb-12">
@@ -980,6 +1084,12 @@ export function SimuladorConsorcio() {
                 setResultadosConstrucao(dados)
                 setPdfPayloadConstrucao(pdfPayload)
                 setShowResults(true)
+
+                // Sync planoLight state from child component to update label correctly
+                if (pdfPayload.inputs?.planoReducao) {
+                  setPlanoLight(String(pdfPayload.inputs.planoReducao))
+                }
+
                 // Salva no histórico automaticamente
                 void salvarSimulacao({
                   inputs: pdfPayload.inputs,
@@ -1353,7 +1463,16 @@ export function SimuladorConsorcio() {
                               <span className="whitespace-nowrap">/mês</span>
                             </div>
                             <p className="text-sm text-primary-foreground/80">
-                              Parcela Integral
+                              {(() => {
+                                switch (planoLight) {
+                                  case "6": return "Meia Parcela"
+                                  case "5": return "Redução de 40%"
+                                  case "4": return "Redução de 30%"
+                                  case "3": return "Redução de 20%"
+                                  case "2": return "Redução de 10%"
+                                  default: return "Parcela Integral"
+                                }
+                              })()}
                             </p>
                           </div>
                           <div className="min-w-0 xl:text-right">
@@ -1548,22 +1667,25 @@ export function SimuladorConsorcio() {
                             Reinvestimento Mensal (R$)
                           </p>
 
-                          <div className="flex items-center w-full max-w-[300px] rounded-md border border-emerald-200 bg-white/50 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 shadow-sm mx-auto">
+                          <div className="flex items-center w-full max-w-[240px] rounded-md border border-emerald-200 bg-white/50 overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500 shadow-sm mx-auto">
                             <Input
                               value={manualReinvestimento}
                               onChange={(e) => handleReinvestimentoChange(e.target.value)}
                               placeholder="0,00"
-                              className="border-0 focus-visible:ring-0 rounded-none shadow-none h-12 lg:h-16 px-3 text-center text-emerald-950 flex-1 min-w-0 bg-transparent text-xl lg:text-3xl"
+                              className="border-0 focus-visible:ring-0 rounded-none shadow-none h-12 lg:h-16 px-3 text-center text-emerald-950 flex-1 min-w-0 bg-transparent text-lg lg:text-2xl font-bold"
                             />
                             <div className="h-8 lg:h-10 w-[2px] bg-emerald-200 mx-0" />
-                            <Input
-                              value={manualReinvestimentoSecundario}
-                              onChange={(e) => setManualReinvestimentoSecundario(e.target.value)}
-                              placeholder="%"
-                              type="number"
-                              step="0.1"
-                              className="border-0 focus-visible:ring-0 rounded-none shadow-none h-12 lg:h-16 px-2 text-center text-black-700 w-24 bg-emerald-50/30 text-xs lg:text-sm font-medium"
-                            />
+                            <div className="relative flex items-center justify-center w-20 bg-emerald-50/30 h-12 lg:h-16">
+                              <Input
+                                value={manualReinvestimentoSecundario}
+                                onChange={(e) => handleReinvestimentoTaxaChange(e.target.value)}
+                                placeholder="0"
+                                type="text"
+                                inputMode="decimal"
+                                className="border-0 focus-visible:ring-0 rounded-none shadow-none h-full px-1 text-right text-emerald-950 w-full bg-transparent text-lg lg:text-2xl font-bold"
+                              />
+                              <span className="pr-2 pl-0.5 text-emerald-600/70 font-bold text-lg lg:text-2xl">%</span>
+                            </div>
                           </div>
 
                           <p className="text-[15px] text-emerald-600/70 font-medium tracking-wide uppercase">
@@ -1581,7 +1703,7 @@ export function SimuladorConsorcio() {
                         <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
                           <div className="space-y-2">
                             <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
+                              <TrendingUp className="w-6 h-6" />
                               Valorização Final do Imóvel
                             </p>
                             <p className="text-xl md:text-3xl font-bold text-emerald-950">
@@ -1601,9 +1723,29 @@ export function SimuladorConsorcio() {
                               Investimento Acumulado
                             </p>
                             <p className="text-xl md:text-3xl font-bold text-emerald-950">
+                              {formatCurrency(investimentoAcumuladoConstrucao.valorFinal)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {`Aporte mensal: ${formatCurrency(parseCurrencyInput(manualReinvestimento))} | Taxa: ${manualReinvestimentoSecundario || "0"}% a.m.`}
                             </p>
                           </div>
                         </CardContent>
+                      </Card>
+                      <Card className="border-emerald-700/60 w-[1089px] bg-gradient-to-br from-yellow-50/50 to-yellow-50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300" >
+                        <div className="space-y-5">
+                          <p className=" flex flex-col items-center justify-center font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
+                            <TrendingUp className="w-6 h-6" />
+                            Renda passiva mensal
+                          </p>
+                          <p className="flex items-center justify-center text-xl md:text-3xl font-bold text-emerald-800"
+                            title={`Imóvel: ${(resultadosConstrucao?.creditoComValorizacaoFinal || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${resultadosConstrucao?.rendaMensalImovel || 0}%) + Inv.: ${investimentoAcumuladoConstrucao.valorFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} (${manualReinvestimentoSecundario}%)`}
+                          >
+                            {formatCurrency(rendaPassivaMensalCalculada)}
+                          </p>
+                        </div>
+
+
+
                       </Card>
                     </div>
                   </div>
@@ -1921,7 +2063,7 @@ export function SimuladorConsorcio() {
                       <CardHeader>
                         <CardTitle className="text-base">Resumo da Simulação Oficial (Planilha)</CardTitle>
                         <CardDescription>
-                          Valores calculados com a mesma lógica da planilha Servopa (calculateSimulation).
+                          Valores calculados com a mesma lógica da planilha Servopa.
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="grid md:grid-cols-3 gap-4 text-sm">

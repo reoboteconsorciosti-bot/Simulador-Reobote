@@ -35,6 +35,7 @@ export interface ConstrucaoOutputs {
     modoContemplacao?: string // Novo campo
     valorizacaoAnual?: number // Novo campo
     creditoComValorizacaoFinal?: number // Novo campo
+    rendaPassivaMensal?: number // Novo campo - Renda passiva do investimento acumulado
     historicoValorizacaoAnual?: Array<{ ano: number; valor: number }> // Novo campo
     inputs: ConstrucaoInputs // Repassando inputs para referência
 }

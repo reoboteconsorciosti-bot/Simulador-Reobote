@@ -100,14 +100,15 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
     const L16_CONST = 0.000599
     const L17_CONST = 0.000392
 
-    const calcParcelaComPlanoESeguro = (credito: number, prazoMeses: number, taxaPercent: number): number => {
+    const calcParcelaComPlanoESeguro = (credito: number, prazoMeses: number, taxaPercent: number, considerarPlano: boolean = true): number => {
         if (credito <= 0 || prazoMeses <= 0) return 0
 
         const taxaDecimal = taxaPercent / 100
         const N13 = 1 + taxaDecimal
         const baseParcela = (credito / prazoMeses) * N13
 
-        const factor = getPlanoLightFactor(Number(planoLight) || 1)
+        // Se considerarPlano for false, fator é 1.0 (Parcela Cheia). Caso contrário, usa o fator do plano selecionado.
+        const factor = considerarPlano ? getPlanoLightFactor(Number(planoLight) || 1) : 1.0
 
         const tipoSeguro = Number(seguroPrestamista) || 3
         const isAutomovel = tipoSeguro === 1
@@ -116,6 +117,11 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
         const N12 = credito * N13
         const seguroVida = L16_CONST * N12 * (isAutomovel ? 1 : 0)
         const seguroGarantia = L17_CONST * N12 * (isImovel ? 1 : 0)
+
+        // Nota: O seguro geralmente é calculado sobre o valor total, independente do plano de redução na parcela base,
+        // mas a redução da parcela incide sobre a parcela base.
+        // Se a regra de negócio for que o seguro TAMBÉM sofre redução (improvável), ajustaria aqui.
+        // Assumindo que a redução é apenas na parcela (amortização + taxa).
 
         return baseParcela * factor + seguroVida + seguroGarantia
     }
@@ -176,6 +182,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
             valorLanceLivreEfetivo = valorLanceLivreCalc
         }
 
+        // Parcela antes da contemplação (com redução se houver)
         const parcelaReferencia = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
         const totalBidParcels = parcelaReferencia > 0 ? round0(totalLance / parcelaReferencia) : 0
         const D20_qtd_parcelas_embutido = parcelaReferencia > 0 ? round0(valorLanceEmbutidoEfetivo / parcelaReferencia) : 0
@@ -195,7 +202,9 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
 
         const qtdParcelasPagasComLance = outputs.qtdParcelasPagas + parcelasAbatidas
         const parcelasAPagarQtdComLance = Math.max(0, inputs.prazo - qtdParcelasPagasComLance)
-        const novaParcelaComPlanoESeguro = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa)
+
+        // Nova Parcela (Pós Contemplação) - CONSIDERANDO O VALOR CHEIO (sem redução do plano light/flex)
+        const novaParcelaComPlanoESeguro = calcParcelaComPlanoESeguro(outputs.creditoAtualizado, inputs.prazo, inputs.taxa, false)
         const saldoDevedorComLance = novaParcelaComPlanoESeguro * parcelasAPagarQtdComLance
 
         const creditoPosEmbutido = baseCreditoLance - valorLanceEmbutidoEfetivo
@@ -272,6 +281,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                     seguroPrestamista,
                     formaAbatimento: diluirLance,
                     valorizacaoPercent: valorizacaoBem,
+                    porcRenda: rendaMensalImovel,
                     tipoBem: "construcao",
                 },
                 outputs: outputsComLance,
@@ -317,6 +327,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                     seguroPrestamista,
                     formaAbatimento: diluirLance,
                     valorizacaoPercent: valorizacaoBem,
+                    porcRenda: rendaMensalImovel,
                     tipoBem: "construcao",
                 },
                 outputs: outputsComLance,
@@ -430,8 +441,24 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                                 </div>
                             </div>
 
+                            <div className="space-y-2">
+                                <Label htmlFor="planoLight">Plano Redução</Label>
+                                <select
+                                    id="planoLight"
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    value={planoLight}
+                                    onChange={(e) => setPlanoLight(e.target.value)}
+                                >
+                                    <option value="1">Integral (Sem redução)</option>
+                                    <option value="2">Plano Flex 10%</option>
+                                    <option value="3">Plano Flex 20%</option>
+                                    <option value="4">Plano Flex 30%</option>
+                                    <option value="5">Plano Flex 40%</option>
+                                    <option value="6">Plano Flex 50%</option>
+                                </select>
+                            </div>
                             {/* Contemplação */}
-                            <div className="space-y-2 w-130">
+                            <div className="space-y-2 w-full">
                                 <Label htmlFor="contemplacao">Contemplação (mês)</Label>
                                 <Input
                                     id="contemplacao"
@@ -597,24 +624,6 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                                             O valor total do lance não pode ultrapassar o valor do Crédito (100%).
                                         </div>
                                     )}
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="planoLight">Plano Redução</Label>
-                                        <select
-                                            id="planoLight"
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                            value={planoLight}
-                                            onChange={(e) => setPlanoLight(e.target.value)}
-                                        >
-                                            <option value="1">Integral (Sem redução)</option>
-                                            <option value="2">Plano Flex 10%</option>
-                                            <option value="3">Plano Flex 20%</option>
-                                            <option value="4">Plano Flex 30%</option>
-                                            <option value="5">Plano Flex 40%</option>
-                                            <option value="6">Plano Flex 50%</option>
-                                        </select>
-                                    </div>
-
                                     <div className="space-y-2">
                                         <Label htmlFor="seguroPrestamista">Seguro Prestamista</Label>
                                         <select

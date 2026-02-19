@@ -91,7 +91,11 @@ export function formatProposalPayloadConstrucao(params: {
     seguroPrestamista: string | number
     formaAbatimento: string | number
     valorizacaoPercent: string | number
+    porcRenda: string
+    valorRentab?: number
+    rendaPass?: number
     tipoBem: string
+    rentab?: string
   }
   outputs: ConstrucaoOutputs
 }): WebhookPayloadConstrucao {
@@ -176,10 +180,10 @@ export function formatProposalPayloadConstrucao(params: {
     dataSimulacao: dataSimulacao,
 
     // Investment Fields
-    anos: "20", // Default logic or input? Assuming 20 based on context, or derived from prazo?
+    anos: ((params.inputs.prazoMeses || 0) / 12).toLocaleString("pt-BR", { maximumFractionDigits: 1 }),
     // User JSON shows "porcValorizImo": "40%". This comes from params.inputs.valorizacaoPercent.
     porcValorizImo: formatPercent(valorizacaoPercentNumber),
-    valoriz: formatCurrency(valorizacaoReal),
+    valoriz: formatCurrency(creditoComValorizacao),
     // "porcRenda" seems to be rental yield percent?
     // In component logic: rendaMensalImovel is an input, but what is the yield?
     // Let's check outputs for yield if available, or calc it.
@@ -196,16 +200,21 @@ export function formatProposalPayloadConstrucao(params: {
     praRestan: String(params.outputs.parcelasAPagarQtd ?? 0),
 
     // "rentab": "1%". Maybe generic? Or calc?
-    rentab: "1%", // Placeholder matching example if dynamic logic unavailable
-    porcRenda: "0.5%", // Placeholder, commonly used default for rental yield if not explicit input
+    rentab: params.inputs.rentab ? `${params.inputs.rentab}%` : "0%", // Use input value or default
+    porcRenda: params.inputs.porcRenda,
 
     porcValAnual: "6%", // Placeholder or input if we have it? (We have INCC, but this is Property Appreciation)
 
     // "valFinaImov": "R$ 6.557.898,06". This is huge. Likely Future Value of property?
     // We have creditoComValorizacao, but that's initial.
-    valFinaImov: formatCurrency(params.outputs.creditoComValorizacao ?? 0), // Mapping what we have for now.
+    valFinaImov: formatCurrency(
+      params.outputs.creditoComValorizacaoFinal ??
+      params.outputs.creditoComValorizacao ??
+      params.outputs.creditoAtualizado ??
+      0
+    ),
 
-    valorRentab: formatCurrency(0), // No direct output for total rentability value over time in current outputs interface
-    rendaPass: formatCurrency(0), // Passive income?
+    valorRentab: formatCurrency(params.inputs.valorRentab ?? 0),
+    rendaPass: formatCurrency(params.inputs.rendaPass ?? 0),
   }
 }

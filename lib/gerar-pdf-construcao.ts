@@ -13,7 +13,11 @@ export async function gerarPdfConstrucao(params: {
     seguroPrestamista: string | number
     formaAbatimento: string | number
     valorizacaoPercent: string | number
+    porcRenda: string
+    valorRentab?: number
+    rendaPass?: number
     tipoBem: string
+    rentab?: string
   }
   outputs: ConstrucaoOutputs
 }): Promise<Response> {
