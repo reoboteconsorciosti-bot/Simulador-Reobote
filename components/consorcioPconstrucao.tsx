@@ -739,7 +739,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="valorizacaoBem">Valorização sobre o Imóvel (%)</Label>
+                            <Label htmlFor="valorizacaoBem">Valorização sobre o Imóvel - Pós Construção (%)</Label>
                             <Input
                                 id="valorizacaoBem"
                                 type="number"
@@ -751,7 +751,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="valorizacaoAnual">Valorização Anual do Imóvel (%)</Label>
+                            <Label htmlFor="valorizacaoAnual">Valorização Anual do Imóvel - Inflação (%)</Label>
                             <Input
                                 id="valorizacaoAnual"
                                 type="number"
@@ -763,7 +763,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="rendaMensalImovel">Renda mensal do imóvel (%)</Label>
+                            <Label htmlFor="rendaMensalImovel">Renda mensal do imóvel - Aluguel (%)</Label>
                             <Input
                                 id="rendaMensalImovel"
                                 type="number"

@@ -201,7 +201,7 @@ export function formatProposalPayloadConstrucao(params: {
 
     // "rentab": "1%". Maybe generic? Or calc?
     rentab: params.inputs.rentab ? `${params.inputs.rentab}%` : "0%", // Use input value or default
-    porcRenda: params.inputs.porcRenda,
+    porcRenda: params.inputs.porcRenda + "%",
 
     porcValAnual: "6%", // Placeholder or input if we have it? (We have INCC, but this is Property Appreciation)
 

@@ -1615,8 +1615,7 @@ export function SimuladorConsorcio() {
                         <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
                           <div className="space-y-2">
                             <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
-                              Crédito com Valorização
+                              Valorização do Imóvel Pós Construção
                             </p>
                             <p className="text-xl md:text-3xl font-bold text-emerald-950">
                               {formatCurrency(
@@ -1636,8 +1635,8 @@ export function SimuladorConsorcio() {
                         <CardContent className="py-6 flex flex-col justify-center h-full text-xs md:text-sm relative z-10">
                           <div className="space-y-2">
                             <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
-                              Renda Mensal Gerada
+                              <TrendingUp className="w-6 h-6" />
+                              Renda Mensal do Imóvel - Aluguel
                             </p>
                             <p className="text-xl md:text-3xl font-bold text-emerald-950">
                               {formatCurrency(resultadosConstrucao.rendaMensalGerada)}
