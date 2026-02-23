@@ -28,7 +28,7 @@ export interface SimulationOutputs {
 }
 
 const L16_CONST = 0.000599
-const L17_CONST = 0.000392
+const L17_CONST = 0.0004
 
 function round(value: number, decimals: number): number {
   const factor = Math.pow(10, decimals)
@@ -92,7 +92,7 @@ export function calculateSimulation(inputs: SimulationInputs): SimulationOutputs
   const isImovel = seguroPrestamista === 2
 
   const N27_flag = isAutomovel ? 1 : 0
-  const N28_flag = 0
+  const N28_flag = isImovel ? 1 : 0
 
   const L14_seguro_vida = L16_CONST * N12 * N27_flag
   const L15_seguro_garantia = L17_CONST * N12 * N28_flag

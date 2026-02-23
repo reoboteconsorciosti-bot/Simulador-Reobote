@@ -1446,7 +1446,7 @@ export function SimuladorConsorcio() {
                     transition={{ duration: 0.45, ease: "easeOut" }}
                     className="md:col-span-2"
                   >
-                    <Card className="bg-primary text-primary-foreground">
+                    <Card className="border-blue-700/60 w-full bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden group text-white card-hover-effect">
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base font-medium flex items-center gap-2">
                           <Hammer className="w-5 h-5" />
@@ -1462,7 +1462,7 @@ export function SimuladorConsorcio() {
                               <span className="min-w-0 break-words">{formatCurrency(resultadosConstrucao.parcelaIntegral)}</span>
                               <span className="whitespace-nowrap">/mês</span>
                             </div>
-                            <p className="text-sm text-primary-foreground/80">
+                            <p className="text-sm text-white/80">
                               {(() => {
                                 switch (planoLight) {
                                   case "6": return "Meia Parcela"
@@ -1480,19 +1480,19 @@ export function SimuladorConsorcio() {
                               <span className="min-w-0 break-words">{formatCurrency(resultadosConstrucao.novaParcela)}</span>
                               <span className="whitespace-nowrap">/mês</span>
                             </div>
-                            <p className="text-sm text-primary-foreground/80">
+                            <p className="text-sm text-white/80">
                               Nova Parcela Recalculada ({resultadosConstrucao.prazoRestante}x)
                             </p>
                           </div>
                         </div>
-                        <p className="text-xs text-primary-foreground/80">
+                        <p className="text-xs text-white/80">
                           Custo total estimado (atualizado): {formatCurrency(resultadosConstrucao.custoTotal)}
                         </p>
                       </CardContent>
                     </Card>
                   </motion.div>
 
-                  <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
+                  <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50 card-hover-effect">
                     <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
                       <div className="space-y-1 flex flex-col items-center text-center">
                         <p className="font-semibold text-emerald-900/90 text-xs md:text-xl uppercase tracking-wide">
@@ -1560,7 +1560,7 @@ export function SimuladorConsorcio() {
                       </CardContent>
                     </Card>
                   )}
-                  <Card className="md:col-span-2 group relative overflow-hidden bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-md border-emerald-500/50 hover:shadow-lg transition-all duration-300">
+                  <Card className="border-emerald-700/60 w-[1075px] bg-gradient-to-br from-green-50/50 to-green-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
                     <div className="absolute top-0 right-0 p-3 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
                       <TrendingUp className="w-24 h-24 text-emerald-900" />
                     </div>
@@ -1589,7 +1589,7 @@ export function SimuladorConsorcio() {
 
                     <div className="grid md:grid-cols-2 gap-4">
                       {/* 1. Lucro Líquido Mensal (Destaque Topo) */}
-                      <Card className="md:col-span-2 border-emerald-500/50 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 shadow-md relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+                      <Card className="md:col-span-2 border-emerald-500/50 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 relative overflow-hidden group card-hover-effect">
                         <div className="absolute top-0 right-0 p-3 opacity-[0.1] group-hover:opacity-[0.15] transition-opacity">
                           <Wallet className="w-24 h-24 text-emerald-900" />
                         </div>
@@ -1608,7 +1608,7 @@ export function SimuladorConsorcio() {
                       </Card>
 
                       {/* 2. Crédito com Valorização */}
-                      <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                      <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-emerald-200 relative overflow-hidden group card-hover-effect">
                         <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
                           <TrendingUp className="w-20 h-20 text-emerald-900" />
                         </div>
@@ -1628,7 +1628,7 @@ export function SimuladorConsorcio() {
                       </Card>
 
                       {/* 3. Renda Mensal Gerada */}
-                      <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                      <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-emerald-200 relative overflow-hidden group card-hover-effect">
                         <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
                           <TrendingUp className="w-20 h-20 text-emerald-900" />
                         </div>
@@ -1695,7 +1695,7 @@ export function SimuladorConsorcio() {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-                      <Card className="border-emerald-700/60 bg-gradient-to-br from-emerald-50/50 to-white shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                      <Card className=" bg-gradient-to-br from-emerald-50/50 to-emerald-200 relative overflow-hidden group card-hover-effect">
                         <div className="absolute top-0 right-0 p-3 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
                           <TrendingUp className="w-20 h-20 text-emerald-900" />
                         </div>
@@ -1714,7 +1714,7 @@ export function SimuladorConsorcio() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card className="border-grey-900/60 bg-gradient-to-br from-grey-50/50 to-grey-50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300">
+                      <Card className="border-emerald-900/60 bg-gradient-to-br from-emerald-50/50 to-emerald-200 relative overflow-hidden group card-hover-effect">
                         <CardContent>
                           <div className="space-y-2">
                             <p className="font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
@@ -1730,7 +1730,7 @@ export function SimuladorConsorcio() {
                           </div>
                         </CardContent>
                       </Card>
-                      <Card className="border-emerald-700/60 w-[1089px] bg-gradient-to-br from-yellow-50/50 to-yellow-50 shadow-sm relative overflow-hidden group hover:shadow-md transition-all duration-300" >
+                      <Card className="border-emerald-700/60 w-[1075px] bg-gradient-to-br from-yellow-50/50 to-yellow-50 relative overflow-hidden group card-hover-effect" >
                         <div className="space-y-5">
                           <p className=" flex flex-col items-center justify-center font-bold text-emerald-800 text-[10px] md:text-xs uppercase tracking-wider flex items-center gap-1">
                             <TrendingUp className="w-6 h-6" />
@@ -1758,7 +1758,7 @@ export function SimuladorConsorcio() {
                     transition={{ duration: 0.45, ease: "easeOut" }}
                     className="md:col-span-2"
                   >
-                    <Card className="bg-primary text-primary-foreground">
+                    <Card className="border-emerald-700/60 w-full bg-gradient-to-br from-blue-400/100 to-blue-700 relative overflow-hidden group text-white card-hover-effect">
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base font-medium flex items-center gap-2">
                           <CreditCard className="w-5 h-5" />
@@ -1881,7 +1881,7 @@ export function SimuladorConsorcio() {
 
                   {simulacaoOficial && (
                     <>
-                      <Card className="md:col-span-2 border-emerald-500/70 bg-emerald-50">
+                      <Card className="border-emerald-700/60 md:col-span-2 w-full bg-gradient-to-br from-green-50/50 to-green-200 relative overflow-hidden group card-hover-effect">
                         <CardContent className="py-4 grid md:grid-cols-3 gap-4 text-sm md:text-base">
                           <div className="space-y-1">
                             <p className="font-semibold text-emerald-900/90 text-xs md:text-sm uppercase tracking-wide">
@@ -1919,7 +1919,7 @@ export function SimuladorConsorcio() {
                         </CardContent>
                       </Card>
 
-                      <Card className="md:col-span-2 border-sky-500/70 bg-sky-50 mt-2 shadow-sm">
+                      <Card className="border-blue-700/60 md:col-span-2 w-full bg-gradient-to-br from-blue-50/50 to-blue-100 relative overflow-hidden group card-hover-effect">
                         <CardContent className="py-3 grid md:grid-cols-3 gap-4 text-xs md:text-sm">
                           <div className="space-y-1">
                             <p className="font-semibold text-sky-900">Lance Ofertado (R$)</p>
@@ -1951,34 +1951,18 @@ export function SimuladorConsorcio() {
                     </>
                   )}
 
-                  <Card className="bg-muted">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Wallet className="w-4 h-4" />À Vista (Poupança)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold mb-1">{formatCurrency(effectiveAVista.parcelaMensal)}/mês</div>
-                      <p className="text-xs text-muted-foreground">Total: {formatCurrency(effectiveAVista.custoTotal)}</p>
-                      <p className="text-xs text-amber-600 mt-1">⚠️ Requer muita disciplina</p>
-                    </CardContent>
-                  </Card>
-
                   {simulacaoOficial && (
-                    <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                      <CardHeader className="pb-3">
+                    <Card className="bg-emerald-50 border-emerald-200 md:col-span-2 w-full card-hover-effect">
+                      <CardHeader className="pb-3 flex flex-col items-center justify-center text-center">
                         <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
-                          <TrendingUp className="w-4 h-4" />
+                          <TrendingUp className="w-7 h-7" />
                           Crédito Disponível
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="flex flex-col items-center justify-center text-center">
                         <div className="space-y-1">
-                          <div className="text-2xl font-bold mb-1 text-foreground">
+                          <p className="inline-flex items-center rounded-full bg-gradient-to-br from-emerald-50/60 via-emerald-500/10 to-emerald-700/10 text-emerald-600 px-4 py-1.5 text-3xl md:text-4xl font-extrabold shadow-md">
                             {formatCurrency(simulacaoOficial.creditoDisponivel)}
-                          </div>
-                          <p className="text-xs text-emerald-900/80 uppercase tracking-wide">
-                            Crédito Disponível
                           </p>
                         </div>
                       </CardContent>
@@ -1987,7 +1971,7 @@ export function SimuladorConsorcio() {
                 </>
               ) : (
                 <>
-                  <Card className="bg-secondary text-secondary-foreground md:col-span-2">
+                  <Card className="bg-secondary text-secondary-foreground md:col-span-2 card-hover-effect">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <CreditCard className="w-5 h-5" />
@@ -2003,33 +1987,20 @@ export function SimuladorConsorcio() {
                     </CardContent>
                   </Card>
 
-                  <Card className="bg-muted">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm font-medium flex items-center gap-2">
-                        <Wallet className="w-4 h-4" />À Vista (Poupança)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold mb-1">{formatCurrency(effectiveAVista.parcelaMensal)}/mês</div>
-                      <p className="text-xs text-muted-foreground">Total: {formatCurrency(effectiveAVista.custoTotal)}</p>
-                      <p className="text-xs text-amber-600 mt-1">⚠️ Espera até o final</p>
-                    </CardContent>
-                  </Card>
-
                   {simulacaoOficial && (
-                    <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                      <CardHeader className="pb-3">
+                    <Card className="bg-emerald-50 border-emerald-200 md:col-span-2 w-full card-hover-effect">
+                      <CardHeader className="pb-3 flex flex-col items-center justify-center text-center">
                         <CardTitle className="text-sm font-medium flex items-center gap-2 text-emerald-900">
                           <TrendingUp className="w-4 h-4" />
                           Crédito Disponível (Planilha)
                         </CardTitle>
                       </CardHeader>
-                      <CardContent>
+                      <CardContent className="flex flex-col items-center justify-center text-center">
                         <div className="space-y-1">
                           <p className="font-semibold text-emerald-900/80 text-[0.7rem] md:text-xs uppercase tracking-wide">
                             Crédito Disponível
                           </p>
-                          <p className="inline-flex items-center rounded-full bg-gradient-to-br from-emerald-50/60 via-emerald-500/10 to-emerald-700/10 text-emerald-900 px-4 py-1.5 text-sm md:text-base font-extrabold shadow-md border border-emerald-300/70 ring-1 ring-emerald-800/10 backdrop-blur-md">
+                          <p className="inline-flex items-center rounded-full bg-gradient-to-br from-emerald-50/60 via-emerald-500/10 to-emerald-700/10 text-emerald-600 px-4 py-1.5 text-3xl md:text-4xl font-extrabold shadow-md border border-emerald-300/70 ring-1 ring-emerald-800/10 backdrop-blur-md">
                             {formatCurrency(simulacaoOficial.creditoDisponivel)}
                           </p>
                         </div>
@@ -2058,7 +2029,7 @@ export function SimuladorConsorcio() {
                   />
 
                   {simulacaoOficial && (
-                    <Card className="mt-4">
+                    <Card className="mt-4 card-hover-effect">
                       <CardHeader>
                         <CardTitle className="text-base">Resumo da Simulação Oficial (Planilha)</CardTitle>
                         <CardDescription>
@@ -2096,7 +2067,7 @@ export function SimuladorConsorcio() {
                     </Card>
                   )}
 
-                  <Card className="mt-4">
+                  <Card className="mt-4 card-hover-effect">
                     <CardHeader>
                       <CardTitle className="text-base flex items-center gap-2">
                         <TrendingUp className="w-4 h-4" />
