@@ -705,6 +705,8 @@ export function SimuladorConsorcio() {
     const taxaAdminRaw = Number.parseFloat(taxaAdministracao)
     const fundoResRaw = Number.parseFloat(fundoReserva)
     const percLanceRaw = Number.parseFloat(lanceConsorcio)
+    const percLanceOfertadoRaw = Number.parseFloat(percentualOfertado)
+    const percLanceEmbutidoOficialRaw = Number.parseFloat(percentualEmbutido)
 
     if (!valor || !prazo) {
       return {
@@ -722,8 +724,12 @@ export function SimuladorConsorcio() {
 
     const taxaAdmin = (Number.isNaN(taxaAdminRaw) ? 0 : taxaAdminRaw) / 100
     const fundoRes = (Number.isNaN(fundoResRaw) ? 0 : fundoResRaw) / 100
+    const percLanceOfertado = (Number.isNaN(percLanceOfertadoRaw) ? 0 : percLanceOfertadoRaw) / 100
+    const percLanceEmbutidoOficial = (Number.isNaN(percLanceEmbutidoOficialRaw) ? 0 : percLanceEmbutidoOficialRaw) / 100
+
+    const usarPercentuaisOficiais = percLanceOfertado > 0 || percLanceEmbutidoOficial > 0
     const percLance = (Number.isNaN(percLanceRaw) ? 0 : percLanceRaw) / 100
-    const valorLanceTotal = valor * percLance
+    const valorLanceTotal = valor * (usarPercentuaisOficiais ? percLanceOfertado : percLance)
 
     let valorLance = valorLanceTotal
     let valorLanceLivre = 0
@@ -732,17 +738,23 @@ export function SimuladorConsorcio() {
     let baseCarta = valor
 
     if (valorLanceTotal > 0) {
-      if (tipoLance === "livre") {
-        valorLanceLivre = valorLanceTotal
-        baseCarta = valor
-      } else if (tipoLance === "embutido") {
-        valorLanceEmbutido = valorLanceTotal
+      if (usarPercentuaisOficiais) {
+        valorLanceEmbutido = Math.max(0, valor * percLanceEmbutidoOficial)
+        valorLanceLivre = Math.max(0, valorLanceTotal - valorLanceEmbutido)
         baseCarta = Math.max(valor - valorLanceEmbutido, 0)
-      } else if (tipoLance === "ambos") {
-        const percEmbutido = Number.parseFloat(lanceEmbutidoPercent) / 100
-        valorLanceEmbutido = valorLanceTotal * percEmbutido
-        valorLanceLivre = valorLanceTotal * (1 - percEmbutido)
-        baseCarta = Math.max(valor - valorLanceEmbutido, 0)
+      } else {
+        if (tipoLance === "livre") {
+          valorLanceLivre = valorLanceTotal
+          baseCarta = valor
+        } else if (tipoLance === "embutido") {
+          valorLanceEmbutido = valorLanceTotal
+          baseCarta = Math.max(valor - valorLanceEmbutido, 0)
+        } else if (tipoLance === "ambos") {
+          const percEmbutido = Number.parseFloat(lanceEmbutidoPercent) / 100
+          valorLanceEmbutido = valorLanceTotal * percEmbutido
+          valorLanceLivre = valorLanceTotal * (1 - percEmbutido)
+          baseCarta = Math.max(valor - valorLanceEmbutido, 0)
+        }
       }
     }
 
@@ -983,9 +995,9 @@ export function SimuladorConsorcio() {
           <h1 className="sr-only">Simulador de Consórcios Reobote Conórcios</h1>
           <div className="flex flex-col items-center justify-center">
             <img
-              src="https://reoboteconsorcios.com.br/wp-content/uploads/2024/01/reobote-1a-300x171.png"
+              src="https://reoboteconsorcios.com.br/wp-content/uploads/2024/01/reobote-1.png"
               alt="Reobote Consórcios"
-              className="h-20 w-auto object-contain drop-shadow-sm"
+              className="h-26 w-auto object-contain drop-shadow-sm"
             />
 
           </div>

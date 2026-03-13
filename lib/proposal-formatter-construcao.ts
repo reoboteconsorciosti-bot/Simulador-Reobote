@@ -49,11 +49,19 @@ export interface WebhookPayloadConstrucao {
   rendaAlug?: string
   lucroRenda?: string
   praRestan?: string
-  rentab?: string
+  
+  
+
+
+
+
+
+  
   porcValAnual?: string
   valFinaImov?: string
   valorRentab?: string
   rendaPass?: string
+  rentab?: string
 }
 
 const formatCurrency = (value: number): string => {
