@@ -56,6 +56,29 @@ export function createSessionToken(user: User, opts?: { maxAgeSeconds?: number }
   return `${payloadB64}.${signature}`
 }
 
+export function createMagaluSsoToken(user: User): string {
+  const secret = process.env.AUTH_SECRET
+  if (!secret) {
+    throw new Error("Missing AUTH_SECRET.")
+  }
+
+  // Define um tempo curto de expiração (2 minutos - 120 segundos)
+  const maxAgeSeconds = 120
+
+  const payload = {
+    uid: user.uid,
+    email: user.email,
+    role: user.profile.role,
+    exp: Math.floor(Date.now() / 1000) + maxAgeSeconds,
+  }
+
+  const payloadJson = JSON.stringify(payload)
+  const payloadB64 = base64UrlEncode(payloadJson)
+  const signature = sign(payloadB64, secret)
+  return `${payloadB64}.${signature}`
+}
+
+
 export function verifySessionToken(token: string): SessionPayload | null {
   const secret = process.env.AUTH_SECRET
   if (!secret) return null

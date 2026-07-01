@@ -1,0 +1,63 @@
+DOCUMENTAÇÃO DE INTEGRAÇÃO SSO
+Simulador Central <=> Simulador Magalu
+
+=========================================
+1. RESUMO DA INTEGRAÇÃO
+=========================================
+Foi desenvolvida uma integração Single Sign-On (SSO) para permitir que usuários autenticados no "Simulador Central" acessem o "Simulador Magalu" de forma fluida, sem precisar logar novamente ou repetir o processo de autenticação, e mantendo uma forte camada de segurança.
+
+A solução dispensou qualquer alteração de banco de dados (Prisma/PostgreSQL), criação de novas tabelas ou migrações. Toda a estratégia concentrou-se na passagem de um Token de Autenticação (JWT customizado) temporário entre os dois sistemas, garantido por criptografia.
+
+=========================================
+2. O QUE FOI DESENVOLVIDO NO SIMULADOR CENTRAL
+=========================================
+Para ativar essa comunicação segura, algumas partes foram introduzidas no Simulador Central:
+
+A) Geração da Credencial Segura (server-auth.ts):
+Foi criada a função `createMagaluSsoToken`. Ela é responsável por carregar os dados essenciais da sessão atual (UID, Email e Role) e envelopá-los com um período de expiração curtíssimo (Apenas 2 minutos / 120 segundos).
+
+B) Rota de Redirecionamento Autenticada (app/api/magalu-sso/route.ts):
+Sempre que um usuário clica no botão do Magalu Central, o Next.js intercepta e checa:
+- O usuário está autenticado no Central? Se NÂO, nega acesso (401 Unauthorized).
+- Se SIM, gera o Token de 2 minutos usando a função descrita em A.
+- Logo em seguida, redireciona o usuário (Redirect 307) para a `MAGALU_URL/auth?token=<token>`.
+
+C) Interface (app-shell.tsx):
+O botão do menu lateral no Central apenas invoca a Rota B acima, abrindo em uma nova aba usando: `window.open("/api/magalu-sso", "_blank")`. Secreto e protegido do lado do servidor.
+
+=========================================
+3. A ANATOMIA DO TOKEN DE ACESSO
+=========================================
+O ponto mais importante e o motivo do formato da integração é a arquitetura deste token, que NÃO segue o padrão universal de 3 partes do JWT e sim de DUAS PARTES (Payload + Signature).
+
+Formato do Token Transferido:
+[Base64_da_Payload].[Assinatura_Criptografada]
+
+A Assinatura (Signature) é gerada pegando a Payload convertida em Base64 e passando por uma máquina de criptografia HMAC SHA-256 (módulo crypto do Node.js) batendo contra uma senha mestra fortíssima (`AUTH_SECRET`).
+
+=========================================
+4. REQUISITOS DO LADO DO SIMULADOR MAGALU
+=========================================
+Para que o Simulador Magalu valide que a pessoa clicando realmente está vindo do Central (e com o token puro, não modificado), o Magalu obedece a TRÊS REGRAS:
+
+I - SENHA IDÊNTICA (AUTH_SECRET):
+O Simulador Central precisou informar os Exatos 58 caracteres de sua variável protegida `AUTH_SECRET` presentes em seu ambiente de Runtime. O Simulador Magalu foi forçado a usar absolutamente esta mesma senha mestra.
+
+II - ALGORITMO SOB MEDIDA (Sem bibliotecas rígidas):
+Como o Central envia apenas 2 pedaços no Token, o Magalu usa um código puro de validação (script Custom fornecido à IA do Magalu) que:
+- Separa o token no literal Ponto "."
+- Roda exatamente a mesma máquina criptográfica do Central na Primeira parte (Base64 da Payload) + Senha Mestra (58 caracteres)
+- E confere se o resultado que a máquina Magalu obteve é o mesmo recebido do Central. Se os resultados são iguais, significa que nenhum interceptador alterou os dados no meio do caminho.
+
+III - TEMPO:
+Por fim, o Magalu confere a propriedade `exp` dentro da payload. Se passaram mais de 2 minutos que o usuário saiu do Central, o Simulador Magalu recusa abrir, exigindo que o usuário volte ao Central e faça um novo redirecionamento fresco e recente.
+
+=========================================
+5. FLUXO FINAL PARA O USUÁRIO
+=========================================
+1. O Usuário loga no Simulador Central (via email e senha).
+2. O Usuário clica no "Magalu consórcios".
+3. A API escondida gera o Token de 2 minutos sem exibir a tela.
+4. O navegador leva o jogador para a URL do Magalu anexando o token na barra de endereços (query string `?token=...`).
+5. O Simulador Magalu engole essa URL, tira e examina o Token através das 3 Regras.
+6. Aprovado, ele monta a sessão local interna e libera todo o acesso.
