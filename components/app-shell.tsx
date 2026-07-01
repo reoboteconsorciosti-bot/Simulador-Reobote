@@ -172,7 +172,17 @@ export function AppShell({ children }: AppShellProps) {
               <span
                 role="button"
                 className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-3 text-left text-sm font-medium transition-all duration-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                onClick={() => window.open("/api/magalu-sso", "_blank")}
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/magalu-sso")
+                    if (!res.ok) { alert("Erro ao acessar o Simulador Magalu"); return }
+                    const { token, magaluUrl } = await res.json()
+                    const url = `${magaluUrl}/auth?token=${token}`
+                    window.open(url, "_blank")
+                  } catch {
+                    alert("Erro ao conectar ao Simulador Magalu")
+                  }
+                }}
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
                   <span className="scale-110"><ExternalLink className="h-4 w-4" /></span>

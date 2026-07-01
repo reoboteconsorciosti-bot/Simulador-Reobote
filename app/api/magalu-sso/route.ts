@@ -9,22 +9,15 @@ export async function GET() {
   }
 
   const magaluUrl = process.env.MAGALU_URL
-  
-  // Log em produção para diagnóstico
-  console.log("[magalu-sso] MAGALU_URL lida em runtime:", magaluUrl)
-
   if (!magaluUrl) {
-    return new NextResponse("MAGALU_URL not configured in environment variables", { status: 500 })
+    return new NextResponse("MAGALU_URL not configured", { status: 500 })
   }
 
   try {
     const token = createMagaluSsoToken(user)
-    const redirectUrl = new URL("/auth", magaluUrl)
-    redirectUrl.searchParams.set("token", token)
-
-    console.log("[magalu-sso] Redirecionando para:", redirectUrl.toString())
-
-    return NextResponse.redirect(redirectUrl)
+    // Retorna o token e a URL para o cliente montar o redirect
+    // Evita problemas de redirecionamento via rede interna Docker
+    return NextResponse.json({ token, magaluUrl })
   } catch (error) {
     console.error("Error generating Magalu SSO token: ", error)
     return new NextResponse("Internal Server Error", { status: 500 })
