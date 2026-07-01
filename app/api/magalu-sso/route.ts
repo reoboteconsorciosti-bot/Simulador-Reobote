@@ -9,33 +9,20 @@ export async function GET() {
   }
 
   const magaluUrl = process.env.MAGALU_URL
+  
+  // Log em produção para diagnóstico
+  console.log("[magalu-sso] MAGALU_URL lida em runtime:", magaluUrl)
+
   if (!magaluUrl) {
     return new NextResponse("MAGALU_URL not configured in environment variables", { status: 500 })
   }
 
   try {
     const token = createMagaluSsoToken(user)
-    
-    // --- INÍCIO DEBUG FINGERPRINT MAGALU ---
-    const { createHash, createHmac } = require("crypto")
-    const payloadB64 = "eyJ1aWQiOiI2YWFmMTg1OC00NTdiLTRlOGQtYjEyNC0yM2JlZDEzNzAxZmIiLCJlbWFpbCI6ImNhaWtpbGVtb3M0NUBnbWFpbC5jb20iLCJyb2xlIjoiQWRtaW4iLCJleHAiOjE3ODI5MzEzMjZ9"
-    const secret = process.env.AUTH_SECRET || ""
-
-    console.log("[DEBUG CENTRAL] AUTH_SECRET length:", secret.length)
-    console.log("[DEBUG CENTRAL] AUTH_SECRET EXATO PARA O MAGALU (copie isso sem as aspas externas se houver espaços):", JSON.stringify(secret))
-    console.log(
-      "[DEBUG CENTRAL] signature preview:",
-      createHmac("sha256", secret)
-        .update(payloadB64)
-        .digest("base64")
-        .replace(/=/g, "")
-        .replace(/\+/g, "-")
-        .replace(/\//g, "_")
-    )
-    // --- FIM DEBUG FINGERPRINT MAGALU ---
-
     const redirectUrl = new URL("/auth", magaluUrl)
     redirectUrl.searchParams.set("token", token)
+
+    console.log("[magalu-sso] Redirecionando para:", redirectUrl.toString())
 
     return NextResponse.redirect(redirectUrl)
   } catch (error) {
