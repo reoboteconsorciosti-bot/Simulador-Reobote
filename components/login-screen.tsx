@@ -19,6 +19,16 @@ export function LoginScreen() {
     logout()
   }, [logout])
 
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const ssoError = new URLSearchParams(window.location.search).get("error")
+    if (ssoError === "sso_invalid") {
+      setError("Link de acesso inválido ou expirado. Solicite um novo link.")
+    } else if (ssoError === "sso_user_not_found") {
+      setError("Usuário não cadastrado no Simulador. Fale com o administrador.")
+    }
+  }, [])
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError(null)
