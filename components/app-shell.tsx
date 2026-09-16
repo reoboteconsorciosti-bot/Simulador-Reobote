@@ -189,7 +189,7 @@ export function AppShell({ children }: AppShellProps) {
                 </span>
                 {isOpen && (
                   <span className="text-sm leading-tight text-balance">
-                    Magalu consórcios - Acesse o Novo Simulador Magalu
+                    Simulador Método 3A
                   </span>
                 )}
               </span>
