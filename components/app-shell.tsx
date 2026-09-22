@@ -198,7 +198,7 @@ export function AppShell({ children }: AppShellProps) {
                 role="button"
                 className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-3 text-left text-sm font-medium transition-all duration-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 onClick={() => {
-                  window.open("/3As%20Atualizadissimo.pdf", "_blank")
+                  window.open("/3As.pdf", "_blank")
                 }}
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
@@ -206,7 +206,7 @@ export function AppShell({ children }: AppShellProps) {
                 </span>
                 {isOpen && (
                   <span className="text-sm leading-tight text-balance">
-                    Apresentação Método 3A
+                    Apresentação Método 3As - MG e SP
                   </span>
                 )}
               </span>
