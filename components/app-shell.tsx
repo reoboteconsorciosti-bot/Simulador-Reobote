@@ -8,7 +8,7 @@ import { AdminView } from "@/components/admin-view"
 import { HistoryView } from "@/components/history-view"
 import { InsightsView } from "@/components/insights-view"
 import { UserRole } from "@/lib/auth-types"
-import { BarChart3, Clock, Home, Shield, ChevronLeft, ChevronRight, Menu, ExternalLink } from "lucide-react"
+import { BarChart3, Clock, Home, Shield, ChevronLeft, ChevronRight, Menu, ExternalLink, FileText } from "lucide-react"
 
 type AppTab = "simulator" | "history" | "insights" | "admin"
 
@@ -190,6 +190,23 @@ export function AppShell({ children }: AppShellProps) {
                 {isOpen && (
                   <span className="text-sm leading-tight text-balance">
                     Simulador Método 3A
+                  </span>
+                )}
+              </span>
+
+              <span
+                role="button"
+                className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-3 text-left text-sm font-medium transition-all duration-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                onClick={() => {
+                  window.open("/3As%20Atualizadissimo.pdf", "_blank")
+                }}
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 flex-shrink-0">
+                  <span className="scale-110"><FileText className="h-4 w-4" /></span>
+                </span>
+                {isOpen && (
+                  <span className="text-sm leading-tight text-balance">
+                    Apresentação Método 3A
                   </span>
                 )}
               </span>
