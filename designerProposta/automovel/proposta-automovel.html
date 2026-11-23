@@ -530,6 +530,85 @@
                 </div>
             </div>
 
+            <!--IF:incluirComparativo-->
+            <!-- SEÇÃO 4: CONSÓRCIO VS FINANCIAMENTO (opcional) -->
+            <div class="card card-full" style="border-left-color: var(--accent-blue);">
+                <h3 class="section-title"><i class="ph-fill ph-scales"></i> 4. Consórcio vs Financiamento</h3>
+
+                <div class="lance-grid">
+                    <div class="lance-point" style="border-bottom: none; padding-bottom: 0;">
+                        <div class="lance-header">
+                            <i class="ph-fill ph-handshake data-icon"></i>
+                            <span class="data-label" style="color: var(--primary-blue); font-weight: 700;">Consórcio</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Custo total:</span>
+                            </div>
+                            <span class="data-value accent-value" style="font-size: 17px;">[[consCustoTotal]]</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Parcela mensal:</span>
+                            </div>
+                            <span class="data-value" style="font-size: 16px;">[[consParcela]]</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Taxa administrativa:</span>
+                            </div>
+                            <span class="data-value" style="font-size: 16px;">[[taxaAdm]]</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <span class="lance-val-desc">Sem juros: contemplação por sorteio ou lance.</span>
+                        </div>
+                    </div>
+
+                    <div class="lance-point" style="border-bottom: none; padding-bottom: 0;">
+                        <div class="lance-header">
+                            <i class="ph-fill ph-bank data-icon"></i>
+                            <span class="data-label" style="color: var(--primary-blue); font-weight: 700;">Financiamento</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Custo total:</span>
+                            </div>
+                            <span class="data-value" style="font-size: 17px; color: var(--danger);">[[finCustoTotal]]</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Parcela mensal:</span>
+                            </div>
+                            <span class="data-value" style="font-size: 16px; color: var(--danger);">[[finParcela]]</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Juros totais:</span>
+                            </div>
+                            <span class="data-value" style="font-size: 16px;">[[finJuros]]</span>
+                        </div>
+                        <div class="data-point" style="margin-left: 30px;">
+                            <div class="data-label-wrapper" style="width: 150px;">
+                                <span class="data-label">Entrada:</span>
+                            </div>
+                            <span class="data-value" style="font-size: 16px;">[[finEntrada]]</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--accent-blue) 100%); margin: 24px -20px -16px -20px; padding: 18px 24px; border-radius: 0 0 8px 8px; display: flex; justify-content: space-between; align-items: center; color: white;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <i class="ph-fill ph-trend-down" style="font-size: 32px; color: var(--light-blue);"></i>
+                        <span style="font-size: 16px; font-weight: 700; letter-spacing: 0.5px;">DIFERENÇA DE CUSTO TOTAL<br><span
+                                style="font-size: 12.5px; font-weight: 600; opacity: 0.9;">[[difLabel]] ([[difPerc]] do custo do financiamento)</span></span>
+                    </div>
+                    <span
+                        style="font-size: 26px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">[[difCusto]]</span>
+                </div>
+            </div>
+            <!--/IF:incluirComparativo-->
+
             <p
                 style="text-align: center; font-size: 11px; color: #888; font-style: italic; margin-top: 16px; margin-bottom: 0;">
                 *TAL PROPOSTA NÃO CARACTERIZA PROMESSA DE CONTEMPLAÇÃO, CONFORME PREVÊ LEI Nº 11.795 DE 2008</p>

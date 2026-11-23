@@ -1,4 +1,4 @@
-import { formatProposalPayload } from "./proposal-formatter"
+import { formatProposalPayload, type ComparativoInput } from "./proposal-formatter"
 import type { SimulationOutputs } from "./calculate-simulation"
 
 export async function gerarPdfPadrao(params: {
@@ -13,8 +13,10 @@ export async function gerarPdfPadrao(params: {
     tipoBem: string
   }
   outputs: SimulationOutputs
+  /** Quando informado, a proposta inclui a seção "Consórcio vs Financiamento". */
+  comparativo?: ComparativoInput | null
 }): Promise<Response> {
-  const payload = formatProposalPayload(params.inputs, params.outputs)
+  const payload = formatProposalPayload(params.inputs, params.outputs, params.comparativo)
 
   // [DESATIVADO] Fluxo antigo: enviava o payload ao webhook (n8n/Make) via /api/webhook/proposal.
   // return fetch("/api/webhook/proposal", {

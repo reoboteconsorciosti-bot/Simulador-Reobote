@@ -153,6 +153,8 @@ export function SimuladorConsorcio() {
   const { user } = useAuth()
   const [tipoSimulacao, setTipoSimulacao] = useState<"consorcio" | "financiamento">("consorcio")
   const [generatingPdf, setGeneratingPdf] = useState(false)
+  // Inclui a seção "Consórcio vs Financiamento" na proposta em PDF (escolha do usuário no modal)
+  const [incluirComparativoPdf, setIncluirComparativoPdf] = useState(false)
   const [showPdfSuccessModal, setShowPdfSuccessModal] = useState(false)
   const [showPdfErrorModal, setShowPdfErrorModal] = useState(false)
   const [pdfErrorMessage, setPdfErrorMessage] = useState("")
@@ -683,6 +685,17 @@ export function SimuladorConsorcio() {
           tipoBem,
         },
         outputs: simulacaoOficial,
+        comparativo: incluirComparativoPdf
+          ? {
+              consorcio: {
+                ...effectiveConsorcio,
+                ...(typeof simulacaoOficial?.valorParcela === "number" && Number.isFinite(simulacaoOficial.valorParcela)
+                  ? { parcelaAntesContemplacao: simulacaoOficial.valorParcela }
+                  : {}),
+              },
+              financiamento: effectiveFinanciamento,
+            }
+          : null,
       })
 
       if (res.ok) {
@@ -2147,7 +2160,32 @@ export function SimuladorConsorcio() {
               )
             }
             {/* Ação Principal no Modal */}
-            <div className="flex justify-center pt-8 pb-4">
+            <div className="flex flex-col items-center gap-4 pt-8 pb-4">
+              {!modoConstrucao && (
+                <div className="w-full md:max-w-md rounded-xl border bg-white/70 p-4 text-center space-y-3">
+                  <p className="text-sm font-medium">
+                    Incluir o comparativo Financiamento vs Consórcio na proposta em PDF?
+                  </p>
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Incluir comparativo no PDF">
+                    <Button
+                      type="button"
+                      variant={incluirComparativoPdf ? "default" : "outline"}
+                      aria-pressed={incluirComparativoPdf}
+                      onClick={() => setIncluirComparativoPdf(true)}
+                    >
+                      Sim, incluir
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={!incluirComparativoPdf ? "default" : "outline"}
+                      aria-pressed={!incluirComparativoPdf}
+                      onClick={() => setIncluirComparativoPdf(false)}
+                    >
+                      Não incluir
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Button
                 type="button"
                 className="w-full md:w-full md:max-w-md bg-red-600 hover:bg-red-700 text-white shadow-xl shadow-red-900/20 text-lg h-14"

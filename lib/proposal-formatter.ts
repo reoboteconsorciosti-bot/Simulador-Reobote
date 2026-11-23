@@ -20,6 +20,23 @@ export interface WebhookPayload {
     parcContem: number
     dataSimulacao: string
     tipoBem: string
+
+    // Comparativo Consórcio vs Financiamento (opcional)
+    incluirComparativo?: string
+    consCustoTotal?: string
+    consParcela?: string
+    finCustoTotal?: string
+    finParcela?: string
+    finJuros?: string
+    finEntrada?: string
+    difCusto?: string
+    difPerc?: string
+    difLabel?: string
+}
+
+export interface ComparativoInput {
+    consorcio: { custoTotal: number; parcelaMensal: number; parcelaAntesContemplacao?: number }
+    financiamento: { custoTotal: number; parcelaMensal: number; jurosTotal: number; valorEntrada: number }
 }
 
 const formatCurrency = (value: number): string => {
@@ -57,7 +74,8 @@ export function formatProposalPayload(
         percentualEmbutido: string | number
         tipoBem: string
     },
-    outputs: SimulationOutputs
+    outputs: SimulationOutputs,
+    comparativo?: ComparativoInput | null
 ): WebhookPayload {
     const currentDate = new Date()
     const months = [
@@ -111,7 +129,34 @@ export function formatProposalPayload(
         parcContem: outputs.parcContem,
         dataSimulacao,
         tipoBem: formatTipoBem(inputs.tipoBem),
+        ...(comparativo ? formatComparativo(comparativo) : {}),
+    }
+}
 
+function formatComparativo(c: ComparativoInput) {
+    const parcelaCons =
+        typeof c.consorcio.parcelaAntesContemplacao === "number" && Number.isFinite(c.consorcio.parcelaAntesContemplacao)
+            ? c.consorcio.parcelaAntesContemplacao
+            : c.consorcio.parcelaMensal
+
+    const dif = c.financiamento.custoTotal - c.consorcio.custoTotal
+    const difAbs = Math.abs(dif)
+    const difPerc =
+        c.financiamento.custoTotal > 0 && Number.isFinite(dif)
+            ? (difAbs / c.financiamento.custoTotal) * 100
+            : 0
+
+    return {
+        incluirComparativo: "sim",
+        consCustoTotal: formatCurrency(c.consorcio.custoTotal),
+        consParcela: formatCurrency(parcelaCons),
+        finCustoTotal: formatCurrency(c.financiamento.custoTotal),
+        finParcela: formatCurrency(c.financiamento.parcelaMensal),
+        finJuros: formatCurrency(c.financiamento.jurosTotal),
+        finEntrada: formatCurrency(c.financiamento.valorEntrada),
+        difCusto: formatCurrency(difAbs),
+        difPerc: formatPercent(difPerc),
+        difLabel: dif >= 0 ? "a favor do consórcio" : "a favor do financiamento",
     }
 }
 

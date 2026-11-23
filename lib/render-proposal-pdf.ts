@@ -22,6 +22,11 @@ function escapeHtml(value: string): string {
 
 /** Substitui cada [[chave]] do template pelo valor do payload (escapado). Chaves ausentes viram "—". */
 export function fillTemplate(html: string, data: Record<string, unknown>): string {
+  // Blocos opcionais: <!--IF:chave--> ... <!--/IF:chave--> só ficam se data[chave] estiver preenchido.
+  html = html.replace(
+    /<!--IF:(\w+)-->([\s\S]*?)<!--\/IF:\1-->/g,
+    (_, key: string, inner: string) => (data[key] ? inner : ""),
+  )
   return html.replace(/\[\[(\w+)\]\]/g, (_, key: string) => {
     const v = data[key]
     return v === undefined || v === null || v === "" ? "—" : escapeHtml(String(v))

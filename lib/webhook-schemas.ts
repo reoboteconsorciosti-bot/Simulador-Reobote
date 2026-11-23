@@ -20,6 +20,18 @@ export const proposalSchema = z.object({
     parcContem: z.number().int().nonnegative(),
     dataSimulacao: z.string(),
     tipoBem: z.string(),
+
+    // Comparativo Consórcio vs Financiamento (opcional: só vem quando o usuário escolhe incluir)
+    incluirComparativo: z.string().optional(),
+    consCustoTotal: z.string().optional(),
+    consParcela: z.string().optional(),
+    finCustoTotal: z.string().optional(),
+    finParcela: z.string().optional(),
+    finJuros: z.string().optional(),
+    finEntrada: z.string().optional(),
+    difCusto: z.string().optional(),
+    difPerc: z.string().optional(),
+    difLabel: z.string().optional(),
 })
 
 export const proposalConstrucaoSchema = z.object({
