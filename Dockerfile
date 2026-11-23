@@ -33,6 +33,11 @@ ENV NODE_ENV=production
 
 # Instala apenas dependências de produção para rodar a app
 RUN apk add --no-cache libc6-compat
+
+# Chromium + fontes: usado por lib/render-proposal-pdf.ts para gerar o PDF das propostas.
+# (o binário do @sparticuz/chromium não funciona em Alpine/musl)
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont font-noto font-noto-emoji
+ENV CHROME_EXECUTABLE_PATH=/usr/bin/chromium-browser
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 
@@ -42,6 +47,8 @@ RUN adduser --system --uid 1001 nextjs
 
 # Copia o build gerado
 COPY --from=builder /app/public ./public
+# Templates HTML das propostas (lidos em runtime pela rota /api/proposal/pdf)
+COPY --from=builder /app/designerProposta ./designerProposta
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 

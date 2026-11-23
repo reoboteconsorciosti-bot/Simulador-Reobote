@@ -35,6 +35,7 @@ const LOCAL_BROWSER_PATHS: Record<string, string[]> = {
     "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
     "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
   ],
+  linux: ["/usr/bin/chromium-browser", "/usr/bin/chromium", "/usr/bin/google-chrome"],
   darwin: [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
@@ -52,7 +53,15 @@ async function launchBrowser() {
   // Linux (Vercel/Docker): usa o Chromium do @sparticuz/chromium, que só existe em Linux.
   const local = findLocalBrowser()
   if (local) {
-    return puppeteer.launch({ executablePath: local, headless: true })
+    return puppeteer.launch({
+      executablePath: local,
+      headless: true,
+      // Em container (Linux, usuário não-root) o sandbox do Chromium não funciona.
+      args:
+        process.platform === "linux"
+          ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+          : [],
+    })
   }
   if (process.platform !== "linux") {
     throw new Error(
