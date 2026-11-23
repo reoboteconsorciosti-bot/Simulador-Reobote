@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { parseCurrencyInput } from "@/lib/formatters"
 import { calcularConstrucao, calcularCreditoAtualizado, calcularValorizacao, calcularRendaMensal, calcularRendaLiquidaMensal, type ConstrucaoInputs, type ConstrucaoOutputs } from "./calcConstrucao"
 import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
+import { baixarPdfDaResposta } from "@/lib/baixar-pdf"
 import { calcularValorizacaoAnualComposta } from "@/lib/calcular-valorizacao-anual-composta"
 
 type ModoContemplacao = "sorteio" | "lance_fixo" | "lance_livre"
@@ -334,6 +335,7 @@ export function ConsorcioPConstrucao({ onSimular, nomeCliente, nomeConsultor, ti
             })
 
             if (res.ok) {
+                await baixarPdfDaResposta(res)
                 setShowPdfSuccessModalConstrucao(true)
             } else {
                 const err = await res.json().catch(() => ({}))

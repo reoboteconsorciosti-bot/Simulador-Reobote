@@ -16,7 +16,15 @@ export async function gerarPdfPadrao(params: {
 }): Promise<Response> {
   const payload = formatProposalPayload(params.inputs, params.outputs)
 
-  return fetch("/api/webhook/proposal", {
+  // [DESATIVADO] Fluxo antigo: enviava o payload ao webhook (n8n/Make) via /api/webhook/proposal.
+  // return fetch("/api/webhook/proposal", {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify(payload),
+  // })
+
+  // Novo fluxo: o servidor preenche designerProposta/automovel e devolve o PDF temporário.
+  return fetch("/api/proposal/pdf?tipo=automovel", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),

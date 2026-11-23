@@ -15,6 +15,7 @@ import { formatCurrency } from "@/lib/formatters"
 import { calculateSimulation, type SimulationInputs, type SimulationOutputs } from "@/lib/calculate-simulation"
 import { gerarPdfPadrao } from "@/lib/gerar-pdf-padrao"
 import { gerarPdfConstrucao } from "@/lib/gerar-pdf-construcao"
+import { baixarPdfDaResposta } from "@/lib/baixar-pdf"
 import { simularInvestimentoComAportes } from "@/lib/simular-investimento-aportes"
 import { ConsorcioPConstrucao } from "./consorcioPconstrucao"
 import { Hammer, Logs } from "lucide-react"
@@ -645,6 +646,7 @@ export function SimuladorConsorcio() {
       const res = await gerarPdfConstrucao(payloadToSend)
 
       if (res.ok) {
+        await baixarPdfDaResposta(res)
         setShowPdfSuccessModalConstrucao(true)
       } else {
         const err = await res.json().catch(() => ({}))
@@ -684,6 +686,7 @@ export function SimuladorConsorcio() {
       })
 
       if (res.ok) {
+        await baixarPdfDaResposta(res)
         setShowPdfSuccessModal(true)
       } else {
         const err = await res.json().catch(() => ({}))
