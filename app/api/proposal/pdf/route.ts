@@ -54,7 +54,14 @@ export async function POST(request: Request) {
 
     await logPdfGeneration(user.uid, tipo === "construcao" ? "CONSTRUCTION" : "STANDARD")
 
-    const fileName = `proposta-${tipo}-${safeFileName(validation.data.nome)}.pdf`
+    // Nome do arquivo segue o bem escolhido (imóvel/automóvel), não o template usado.
+    const bem =
+      tipo === "construcao"
+        ? "construcao"
+        : String(validation.data.tipoBem ?? "").toLowerCase().startsWith("im")
+          ? "imovel"
+          : "automovel"
+    const fileName = `proposta-${bem}-${safeFileName(validation.data.nome)}.pdf`
     return new NextResponse(new Uint8Array(pdf), {
       status: 200,
       headers: {

@@ -80,13 +80,25 @@ async function launchBrowser() {
   })
 }
 
+/** Textos/ícone do template conforme o bem escolhido (Imóvel ou Automóvel). */
+export function withBemVars(data: Record<string, unknown>): Record<string, unknown> {
+  const tipo = String(data.tipoBem ?? "").toLowerCase()
+  const isImovel = tipo.startsWith("im")
+  return {
+    ...data,
+    tipoBemPlural: isImovel ? "Imóveis" : "Automóveis",
+    iconeBem: isImovel ? "ph-house-line" : "ph-car-profile",
+    bemFrase: isImovel ? "o seu imóvel" : "o seu veículo",
+  }
+}
+
 /** Gera o PDF em memória. Nada é gravado em disco nem no banco. */
 export async function renderProposalPdf(
   template: ProposalTemplate,
   data: Record<string, unknown>,
 ): Promise<Buffer> {
   const raw = await readFile(path.join(process.cwd(), TEMPLATE_FILES[template]), "utf8")
-  const html = fillTemplate(raw, data)
+  const html = fillTemplate(raw, withBemVars(data))
 
   const browser = await launchBrowser()
   try {
